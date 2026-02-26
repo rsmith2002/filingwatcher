@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 
 import pandas as pd
-from dash import Input, Output, State, callback, no_update
+from dash import Input, Output, State, callback, html, no_update
 from sqlalchemy import and_, or_
 
 from config import COMPANIES, RETURN_WINDOWS
@@ -51,18 +51,21 @@ def _query_filings(
         else:
             return pd.DataFrame()
 
-        # Role filter
-        role_filters = []
-        if "director" in roles:
-            role_filters.append(Section16Filing.is_director == True)
-        if "officer" in roles:
-            role_filters.append(Section16Filing.is_officer == True)
-        if "ten_pct" in roles:
-            role_filters.append(Section16Filing.is_ten_pct_owner == True)
-        if role_filters:
-            q = q.filter(or_(*role_filters))
-        else:
-            return pd.DataFrame()
+        # Role filter — skip entirely when all roles selected (avoids filtering out
+        # rows where all flags are False because any() resolved to False in fetcher)
+        _ALL_ROLES = {"director", "officer", "ten_pct"}
+        if set(roles) != _ALL_ROLES:
+            role_filters = []
+            if "director" in roles:
+                role_filters.append(Section16Filing.is_director == True)
+            if "officer" in roles:
+                role_filters.append(Section16Filing.is_officer == True)
+            if "ten_pct" in roles:
+                role_filters.append(Section16Filing.is_ten_pct_owner == True)
+            if role_filters:
+                q = q.filter(or_(*role_filters))
+            else:
+                return pd.DataFrame()
 
         # Name search
         if search and search.strip():
@@ -94,15 +97,17 @@ def _query_analytics(
         if tickers:
             q = q.filter(InsiderAnalytics.ticker.in_(tickers))
 
-        role_filters = []
-        if "director" in roles:
-            role_filters.append(InsiderAnalytics.is_director == True)
-        if "officer" in roles:
-            role_filters.append(InsiderAnalytics.is_officer == True)
-        if "ten_pct" in roles:
-            role_filters.append(InsiderAnalytics.is_ten_pct_owner == True)
-        if role_filters:
-            q = q.filter(or_(*role_filters))
+        _ALL_ROLES = {"director", "officer", "ten_pct"}
+        if set(roles) != _ALL_ROLES:
+            role_filters = []
+            if "director" in roles:
+                role_filters.append(InsiderAnalytics.is_director == True)
+            if "officer" in roles:
+                role_filters.append(InsiderAnalytics.is_officer == True)
+            if "ten_pct" in roles:
+                role_filters.append(InsiderAnalytics.is_ten_pct_owner == True)
+            if role_filters:
+                q = q.filter(or_(*role_filters))
 
         if search and search.strip():
             q = q.filter(InsiderAnalytics.insider_name.ilike(f"%{search.strip()}%"))

@@ -114,5 +114,51 @@ register_callbacks(app)
 server = app.server
 
 
+# ---------------------------------------------------------------------------
+# /health — diagnostic endpoint, hit in browser to check DB connectivity
+# ---------------------------------------------------------------------------
+import json
+from flask import jsonify
+
+@server.route("/health")
+def health():
+    try:
+        from db.session import get_session
+        from db.models import Company, Section16Filing, InsiderAnalytics, PriceHistory, Flag
+        import os
+
+        session = get_session()
+        result = {
+            "status": "ok",
+            "database_url_set": bool(os.environ.get("DATABASE_URL")),
+            "database_url_preview": (os.environ.get("DATABASE_URL", "NOT SET")[:40] + "..."),
+            "counts": {
+                "companies":          session.query(Company).count(),
+                "section16_filings":  session.query(Section16Filing).count(),
+                "insider_analytics":  session.query(InsiderAnalytics).count(),
+                "price_history":      session.query(PriceHistory).count(),
+                "flags":              session.query(Flag).count(),
+            },
+            "sample_tickers": [
+                r.ticker for r in session.query(Company).limit(5).all()
+            ],
+            "sample_filings": [
+                {
+                    "ticker": r.ticker,
+                    "insider": r.insider_name,
+                    "form": r.filing_form,
+                    "code": r.transaction_code,
+                    "is_director": r.is_director,
+                    "is_officer": r.is_officer,
+                }
+                for r in session.query(Section16Filing).limit(5).all()
+            ],
+        }
+        session.close()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "detail": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8050)
