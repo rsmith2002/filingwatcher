@@ -1,0 +1,53 @@
+name: CeoWatcher Re-Backfill
+
+# Trigger manually from GitHub Actions UI:
+#   Actions → CeoWatcher Re-Backfill → Run workflow
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Start date (YYYY-MM-DD)'
+        default: '2015-01-01'
+        required: true
+      ticker:
+        description: 'Limit to one ticker (e.g. NVDA). Leave blank for all.'
+        default: ''
+        required: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360   # backfill can take a few hours
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Reset filings tables (keep price history)
+        env:
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          EDGAR_IDENTITY: ${{ secrets.EDGAR_IDENTITY }}
+        run: python scripts/reset_filings.py
+
+      - name: Run backfill (prices already downloaded)
+        env:
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          EDGAR_IDENTITY: ${{ secrets.EDGAR_IDENTITY }}
+        run: |
+          TICKER_ARG=""
+          if [ -n "${{ github.event.inputs.ticker }}" ]; then
+            TICKER_ARG="--ticker ${{ github.event.inputs.ticker }}"
+          fi
+          python scripts/backfill.py \
+            --skip-prices \
+            --start "${{ github.event.inputs.start_date }}" \
+            $TICKER_ARG

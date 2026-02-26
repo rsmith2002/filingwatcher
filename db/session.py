@@ -35,7 +35,30 @@ def get_session() -> Session:
     return _SessionFactory()
 
 
+def _drop_accession_unique_constraints():
+    """
+    One-time migration: remove unique constraints on accession_no so that
+    multi-transaction filings (many rows, same accession_no) can be stored.
+    Safe to run repeatedly — IF NOT EXISTS / DROP CONSTRAINT IF EXISTS is idempotent.
+    """
+    from sqlalchemy import text
+    engine = get_engine()
+    stmts = [
+        "ALTER TABLE section16_filings DROP CONSTRAINT IF EXISTS section16_filings_accession_no_key",
+        "ALTER TABLE large_holder_stakes DROP CONSTRAINT IF EXISTS large_holder_stakes_accession_no_key",
+    ]
+    with engine.connect() as conn:
+        for stmt in stmts:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+
 def init_db():
     """Create all tables if they don't exist. Safe to call repeatedly."""
-    Base.metadata.create_all(get_engine())
+    engine = get_engine()
+    _drop_accession_unique_constraints()
+    Base.metadata.create_all(engine)
     print("Database tables verified / created.")

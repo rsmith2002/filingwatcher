@@ -40,7 +40,7 @@ class Section16Filing(Base):
     __tablename__ = "section16_filings"
 
     id                 = Column(Integer, primary_key=True, autoincrement=True)
-    accession_no       = Column(String(50), unique=True, nullable=False, index=True)
+    accession_no       = Column(String(50), nullable=False, index=True)
     ticker             = Column(String(10), ForeignKey("companies.ticker"), index=True)
     company_name       = Column(String(255))
     filing_form        = Column(String(10), index=True)
@@ -80,7 +80,7 @@ class LargeHolderStake(Base):
     __tablename__ = "large_holder_stakes"
 
     id                      = Column(Integer, primary_key=True, autoincrement=True)
-    accession_no            = Column(String(50), unique=True, nullable=False, index=True)
+    accession_no            = Column(String(50), nullable=False, index=True)
     ticker                  = Column(String(10), ForeignKey("companies.ticker"), index=True)
     company_name            = Column(String(255))
     filing_date             = Column(Date, index=True)
