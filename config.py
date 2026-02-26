@@ -62,3 +62,7 @@ DATABASE_URL: str = os.environ.get(
 # SQLAlchemy requires postgresql:// not postgres://
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Neon requires SSL — append if not already present
+if "neon.tech" in DATABASE_URL and "sslmode" not in DATABASE_URL:
+    DATABASE_URL += "?sslmode=require"

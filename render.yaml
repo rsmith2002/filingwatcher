@@ -1,39 +1,20 @@
-# render.yaml — Infrastructure as Code for CeoWatcher
-# Database: Neon (neon.tech) — free PostgreSQL, never expires
-# Web + Cron: Render free tier
+# render.yaml — CeoWatcher web dashboard on Render free tier
 #
-# Setup:
-#   1. Create a free project at neon.tech → copy the connection string
-#   2. In Render dashboard, set these env vars manually on both services:
-#        DATABASE_URL  = (your Neon connection string)
-#        EDGAR_IDENTITY = r63848@proton.me
+# Cron job runs via GitHub Actions (see .github/workflows/ingest.yml)
+# Database: Neon (neon.tech) — free PostgreSQL, never expires
+#
+# Set these env vars manually in Render dashboard:
+#   DATABASE_URL   = your Neon connection string
+#   EDGAR_IDENTITY = r63848@proton.me
 
 services:
-  # ── Dashboard (Dash web app) ───────────────────────────────────────────
   - type: web
     name: ceowatcher-dashboard
-    plan: free              # Free — sleeps after 15min idle (~30s cold start)
+    plan: free
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn dashboard.app:server --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     healthCheckPath: /
-    envVars:
-      - key: DATABASE_URL
-        sync: false         # Paste your Neon connection string here in Render dashboard
-      - key: EDGAR_IDENTITY
-        sync: false
-      - key: PYTHON_VERSION
-        value: "3.11.0"
-
-  # ── Ingest pipeline (cron job — runs 3x daily) ────────────────────────
-  - type: cron
-    name: ceowatcher-ingest
-    plan: free              # Free — cron jobs don't sleep
-    env: python
-    buildCommand: pip install -r requirements.txt
-    # 08:00, 13:00, 18:00 UTC
-    schedule: "0 8,13,18 * * *"
-    startCommand: python ingestion/pipeline.py
     envVars:
       - key: DATABASE_URL
         sync: false
