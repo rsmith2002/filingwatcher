@@ -74,6 +74,24 @@ def run_pipeline(
     print(f"Window: {start_date} → {end_date}")
     print(f"{'='*60}")
 
+    # Seed companies table (idempotent — skips existing rows)
+    from db.models import Company
+    from db.session import get_session as _gs
+    from ingestion.fetchers import _resolve_company
+    _s = _gs()
+    try:
+        for ticker, display_name in companies:
+            if not _s.get(Company, ticker):
+                ec = _resolve_company(ticker, verbose=False)
+                _s.merge(Company(
+                    ticker=ticker,
+                    name=ec.name if ec else display_name,
+                    cik=str(ec.cik) if ec else None,
+                ))
+        _s.commit()
+    finally:
+        _s.close()
+
     errors = []
     new_s16 = new_stakes = analytics_count = flags_count = 0
     tickers = [t for t, _ in companies]

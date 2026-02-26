@@ -28,6 +28,29 @@ from ingestion.fetchers import upsert_large_holder_stakes, upsert_section16
 from ingestion.prices import sync_prices
 
 
+def _seed_companies(companies: list[tuple[str, str]]) -> None:
+    """Insert company rows so foreign keys resolve before any data is written."""
+    from db.models import Company
+    from db.session import get_session
+    from ingestion.fetchers import _resolve_company
+
+    session = get_session()
+    try:
+        for ticker, display_name in companies:
+            if session.get(Company, ticker):
+                continue
+            ec = _resolve_company(ticker, verbose=False)
+            session.merge(Company(
+                ticker=ticker,
+                name=ec.name if ec else display_name,
+                cik=str(ec.cik) if ec else None,
+            ))
+        session.commit()
+        print(f"  Companies seeded: {[t for t, _ in companies]}")
+    finally:
+        session.close()
+
+
 def run_backfill(
     start_date: str = BACKFILL_START,
     tickers_filter: list[str] | None = None,
@@ -51,6 +74,10 @@ def run_backfill(
     print(f"  Date range : {start_date} → {end_date}")
     print(f"  Tickers    : {', '.join(tickers)}")
     print(f"{'='*60}\n")
+
+    # ── Seed companies first (required for FK constraints) ────────────────
+    print("[0/4] Seeding companies table …")
+    _seed_companies(companies)
 
     # ── Prices ────────────────────────────────────────────────────────────
     if not skip_prices:
