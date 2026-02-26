@@ -20,6 +20,10 @@ def get_engine():
             pool_pre_ping=True,      # detect stale connections
             pool_size=5,
             max_overflow=10,
+            connect_args={
+                "sslmode": "require",
+                "connect_timeout": 30,   # wait up to 30s for Neon to wake
+            },
         )
     return _engine
 
