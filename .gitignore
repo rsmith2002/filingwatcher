@@ -1,0 +1,37 @@
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# Vendored edgartools (installed from PyPI on Render)
+edgartools/
+
+# Generated data files (don't commit — DB is the source of truth)
+*.csv
+figures/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Edgartools cache
+.edgar/

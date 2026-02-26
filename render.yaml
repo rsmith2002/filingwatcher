@@ -1,0 +1,47 @@
+# render.yaml — Infrastructure as Code for CeoWatcher
+# Defines all Render services in one file.
+# Commit this to your GitHub repo, then connect it in Render dashboard.
+
+databases:
+  - name: ceowatcher-db
+    plan: starter          # $7/mo — 1GB storage, persistent, no expiry
+    databaseName: ceowatcher
+    user: ceowatcher
+
+services:
+  # ── Dashboard (Dash web app) ───────────────────────────────────────────
+  - type: web
+    name: ceowatcher-dashboard
+    plan: starter           # $7/mo — always on, no sleep
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn dashboard.app:server --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ceowatcher-db
+          property: connectionString
+      - key: EDGAR_IDENTITY
+        sync: false          # Set manually in Render dashboard (your email)
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+  # ── Ingest pipeline (cron job — runs 3x daily) ────────────────────────
+  - type: cron
+    name: ceowatcher-ingest
+    plan: starter
+    env: python
+    buildCommand: pip install -r requirements.txt
+    # 08:00, 13:00, 18:00 UTC  (adjust to your timezone)
+    schedule: "0 8,13,18 * * *"
+    startCommand: python ingestion/pipeline.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ceowatcher-db
+          property: connectionString
+      - key: EDGAR_IDENTITY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.0"

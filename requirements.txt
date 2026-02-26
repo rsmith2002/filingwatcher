@@ -1,0 +1,22 @@
+# Core
+edgartools>=2.0.0
+yfinance>=0.2.40
+pandas>=2.0.0
+numpy>=1.26.0
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+
+# Dashboard
+dash>=2.17.0
+dash-bootstrap-components>=1.6.0
+dash-ag-grid>=31.0.0
+plotly>=5.22.0
+gunicorn>=22.0.0
+
+# Scheduling (for local/self-hosted scheduler process if needed)
+apscheduler>=3.10.4
+
+# Utilities
+python-dotenv>=1.0.0
