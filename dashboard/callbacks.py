@@ -265,15 +265,17 @@ def register_callbacks(app):
     def update_charts(ticker, filing_records, analytics_records):
         import traceback
         import plotly.graph_objects as go
-        from dashboard.components.charts import _LAYOUT_BASE
+
+        _DARK = dict(paper_bgcolor="#16213e", plot_bgcolor="#1a1a2e",
+                     font=dict(color="#e0e0e0"))
 
         def _err_fig(msg: str) -> go.Figure:
             f = go.Figure()
-            f.update_layout(**_LAYOUT_BASE, title=msg[:200])
+            f.update_layout(**_DARK, title=str(msg)[:300])
             return f
 
         try:
-            filings_df  = pd.DataFrame(filing_records  or [])
+            filings_df   = pd.DataFrame(filing_records  or [])
             analytics_df = pd.DataFrame(analytics_records or [])
 
             # Price series for selected ticker
@@ -285,9 +287,9 @@ def register_callbacks(app):
                         prices_df = ps.rename("close").to_frame()
                 except Exception as exc:
                     return (
-                        _err_fig(f"DB error fetching prices: {exc}"),
-                        _err_fig("DB error"),
-                        _err_fig("DB error"),
+                        _err_fig(f"DB error fetching prices for {ticker}: {exc}"),
+                        _err_fig("DB error — see price chart"),
+                        _err_fig("DB error — see price chart"),
                     )
 
             ticker_filings = (
@@ -303,10 +305,11 @@ def register_callbacks(app):
         except Exception as exc:
             tb = traceback.format_exc().splitlines()
             short = " | ".join(tb[-4:])
+            print(f"[update_charts ERROR] {short}")
             return (
-                _err_fig(f"Chart error: {short}"),
-                _err_fig(f"Chart error: {exc}"),
-                _err_fig(f"Chart error: {exc}"),
+                _err_fig(f"ERROR: {short}"),
+                _err_fig(f"ERROR: {exc}"),
+                _err_fig(f"ERROR: {exc}"),
             )
 
     # ── Flags ────────────────────────────────────────────────────────────
