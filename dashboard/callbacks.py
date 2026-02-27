@@ -18,6 +18,7 @@ from dashboard.components.charts import (
     activity_timeline, position_values_bar,
     price_with_transactions, return_window_scatter, unrealized_pnl_bar,
 )
+from dashboard.components.insider_profile import build_insider_content, _empty_state
 from dashboard.components.tables import df_to_records
 from db.models import Flag, InsiderAnalytics, LargeHolderStake, Section16Filing
 from db.session import get_session
@@ -178,6 +179,35 @@ def _query_flags(tickers: list[str]) -> pd.DataFrame:
             c.key: getattr(r, c.key)
             for c in Flag.__table__.columns
         } for r in rows])
+    finally:
+        session.close()
+
+
+def _query_insider_profile(insider_name: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Returns (filings_df, analytics_df) for ALL tickers this insider has
+    activity in — ignores sidebar filters so the profile is complete.
+    """
+    session = get_session()
+    try:
+        filings = (
+            session.query(Section16Filing)
+            .filter(Section16Filing.insider_name == insider_name)
+            .order_by(Section16Filing.transaction_date.desc())
+            .all()
+        )
+        analytics = (
+            session.query(InsiderAnalytics)
+            .filter(InsiderAnalytics.insider_name == insider_name)
+            .all()
+        )
+        filings_df = pd.DataFrame([{
+            c.key: getattr(r, c.key) for c in Section16Filing.__table__.columns
+        } for r in filings]) if filings else pd.DataFrame()
+        analytics_df = pd.DataFrame([{
+            c.key: getattr(r, c.key) for c in InsiderAnalytics.__table__.columns
+        } for r in analytics]) if analytics else pd.DataFrame()
+        return filings_df, analytics_df
     finally:
         session.close()
 
@@ -392,9 +422,10 @@ def register_callbacks(app):
 
         return df_to_records(flags_df), cards
 
-    # ── Sync selected insider from grid click ────────────────────────────
+    # ── Sync selected insider from grid click → store + navigate to tab ─────
     @app.callback(
         Output("store-selected-insider", "data"),
+        Output("main-tabs",              "value"),
         Input("grid-activity",    "selectedRows"),
         Input("grid-leaderboard", "selectedRows"),
         prevent_initial_call=True,
@@ -402,10 +433,10 @@ def register_callbacks(app):
     def sync_selected_insider(activity_rows, leader_rows):
         triggered = callback_context.triggered[0]["prop_id"] if callback_context.triggered else ""
         if "grid-activity" in triggered and activity_rows:
-            return activity_rows[0].get("insider_name")
+            return activity_rows[0].get("insider_name"), "tab-insider"
         if "grid-leaderboard" in triggered and leader_rows:
-            return leader_rows[0].get("insider_name")
-        return no_update
+            return leader_rows[0].get("insider_name"), "tab-insider"
+        return no_update, no_update
 
     # ── Clear insider selection ───────────────────────────────────────────
     @app.callback(
@@ -429,6 +460,27 @@ def register_callbacks(app):
         options = [{"label": t, "value": t} for t in tickers]
         value   = current_value if current_value in tickers else tickers[0]
         return options, value
+
+    # ── Insider Profile tab ──────────────────────────────────────────────
+    @app.callback(
+        Output("insider-profile-content", "children"),
+        Input("store-selected-insider",   "data"),
+        Input("filter-window",            "value"),
+    )
+    def update_insider_tab(selected_insider, window):
+        window = window or "3m"
+        if not selected_insider:
+            return _empty_state()
+        try:
+            filings_df, analytics_df = _query_insider_profile(selected_insider)
+            return build_insider_content(selected_insider, window, filings_df, analytics_df)
+        except Exception as exc:
+            import traceback
+            tb = traceback.format_exc().splitlines()
+            short = " | ".join(tb[-4:])
+            print(f"[update_insider_tab ERROR] {short}")
+            import dash_bootstrap_components as dbc
+            return dbc.Alert(f"Error loading insider profile: {exc}", color="danger")
 
     # ── Reset filters ────────────────────────────────────────────────────
     @app.callback(

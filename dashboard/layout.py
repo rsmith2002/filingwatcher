@@ -256,6 +256,16 @@ def _tab_charts() -> dcc.Tab:
     )
 
 
+def _tab_insider() -> dcc.Tab:
+    return dcc.Tab(label="👤 Insider", value="tab-insider",
+                   className="custom-tab", selected_className="custom-tab-selected",
+        children=[
+            html.Div(id="insider-profile-content",
+                     style={"padding": "16px 0 32px 0"}),
+        ]
+    )
+
+
 def _tab_flags() -> dcc.Tab:
     return dcc.Tab(label="🚩 Flags", value="tab-flags",
                    className="custom-tab", selected_className="custom-tab-selected",
@@ -318,6 +328,7 @@ def build_layout() -> html.Div:
                         _tab_leaderboard(),
                         _tab_charts(),
                         _tab_flags(),
+                        _tab_insider(),
                     ],
                     className="custom-tabs",
                 ),

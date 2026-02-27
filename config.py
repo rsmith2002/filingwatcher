@@ -20,15 +20,15 @@ EDGAR_IDENTITY: str = os.environ.get("EDGAR_IDENTITY", "r63848@proton.me")
 # Company watchlist  — add rows here to expand coverage
 # ---------------------------------------------------------------------------
 COMPANIES: list[tuple[str, str]] = [
-    # ("NVDA",  "Nvidia"),
-    # ("AAPL",  "Apple Inc."),
-    # ("MSFT",  "Microsoft"),
-    # ("AMZN",  "Amazon"),
-    # ("GOOGL", "Alphabet Inc."),
-    # ("META",  "Meta Platforms"),
-    # ("TSLA",  "Tesla"),
-    # ("AVGO",  "Broadcom"),
-    # ("BRK-B", "Berkshire Hathaway"),
+    ("NVDA",  "Nvidia"),
+    ("AAPL",  "Apple Inc."),
+    ("MSFT",  "Microsoft"),
+    ("AMZN",  "Amazon"),
+    ("GOOGL", "Alphabet Inc."),
+    ("META",  "Meta Platforms"),
+    ("TSLA",  "Tesla"),
+    ("AVGO",  "Broadcom"),
+    ("BRK-B", "Berkshire Hathaway"),
     ("IBM",   "International Business Machines Corporation"),
 ]
 
