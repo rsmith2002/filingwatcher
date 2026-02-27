@@ -1,0 +1,44 @@
+name: Sync Price History
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticker:
+        description: 'Specific ticker(s) space-separated (blank = all)'
+        default: ''
+        required: false
+      start_date:
+        description: 'Start date YYYY-MM-DD (blank = 10 years ago)'
+        default: ''
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Sync prices
+        env:
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          EDGAR_IDENTITY: ${{ secrets.EDGAR_IDENTITY }}
+          PYTHONPATH:     .
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.ticker }}" ]; then
+            ARGS="$ARGS --ticker ${{ github.event.inputs.ticker }}"
+          fi
+          if [ -n "${{ github.event.inputs.start_date }}" ]; then
+            ARGS="$ARGS --start ${{ github.event.inputs.start_date }}"
+          fi
+          python scripts/sync_prices_only.py $ARGS
