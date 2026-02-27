@@ -245,15 +245,14 @@ def position_values_bar(analytics_df: pd.DataFrame, top_n: int = 20) -> go.Figur
         customdata=hovers,
         hovertemplate="%{customdata}<extra></extra>",
     ))
+    fig.update_layout(**_LAYOUT_BASE)
     fig.update_layout(
-        **_LAYOUT_BASE,
         title=dict(text="<b>Largest Reported Positions</b> (shares × current price)",
                    x=0.01, font=dict(size=14)),
         xaxis_title="Position Value ($M)",
         height=max(350, len(labels) * 36 + 80),
         bargap=0.3,
-        xaxis=dict(**_LAYOUT_BASE["xaxis"],
-                   range=[0, max(values_m) * 1.3]),
+        xaxis_range=[0, max(values_m) * 1.3],
     )
     return fig
 
