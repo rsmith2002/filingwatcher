@@ -206,11 +206,18 @@ def _rows_from_d_transactions(form_obj, base: dict) -> list[dict]:
 
 
 def _parse_section16_filing(filing, ticker: str, company_name: str) -> list[dict]:
-    try:
-        form_obj = filing.obj()
-    except Exception as exc:
-        print(f"    WARN: Could not parse {filing.accession_no}: {exc}")
-        return []
+    import time
+    form_obj = None
+    for attempt in range(3):
+        try:
+            form_obj = filing.obj()
+            break
+        except Exception as exc:
+            if attempt < 2:
+                time.sleep(5 * (attempt + 1))   # 5s, then 10s
+            else:
+                print(f"    WARN: Could not parse {filing.accession_no} after 3 attempts: {exc}")
+                return []
     if form_obj is None:
         return []
     form_type = filing.form.replace("/A", "").strip()
