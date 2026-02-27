@@ -36,12 +36,14 @@ jobs:
         env:
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           EDGAR_IDENTITY: ${{ secrets.EDGAR_IDENTITY }}
+          PYTHONPATH:     .
         run: python scripts/reset_filings.py
 
       - name: Run backfill (prices already downloaded)
         env:
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           EDGAR_IDENTITY: ${{ secrets.EDGAR_IDENTITY }}
+          PYTHONPATH:     .
         run: |
           TICKER_ARG=""
           if [ -n "${{ github.event.inputs.ticker }}" ]; then

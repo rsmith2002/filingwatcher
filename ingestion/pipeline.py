@@ -12,6 +12,10 @@ Also importable for programmatic use:
 import sys
 import traceback
 from datetime import date, datetime, timedelta
+from pathlib import Path
+
+# Ensure project root is on sys.path when run as a script or from GitHub Actions
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import COMPANIES
 from db.models import IngestRun, Section16Filing

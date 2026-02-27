@@ -27,4 +27,5 @@ jobs:
         env:
           DATABASE_URL:    ${{ secrets.DATABASE_URL }}
           EDGAR_IDENTITY:  ${{ secrets.EDGAR_IDENTITY }}
+          PYTHONPATH:      .
         run: python ingestion/pipeline.py
