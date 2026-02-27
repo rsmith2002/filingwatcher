@@ -72,32 +72,36 @@ def _drop_accession_unique_constraints():
 
 def _widen_varchar_columns():
     """
-    Widen columns that were originally too short for multi-owner filings
-    (e.g. ValueAct has 8 reporting entities whose CIKs get concatenated).
-    Safe to run repeatedly — TYPE change is idempotent if already wider.
+    Convert insider_cik / insider_name from VARCHAR(20) → TEXT.
+    VARCHAR → TEXT is a pure catalog change in PostgreSQL (no rewrite,
+    no index rebuild needed), so it always succeeds.
+    Safe to run repeatedly — altering TEXT→TEXT is a no-op.
     """
     from sqlalchemy import inspect, text
     engine = get_engine()
     existing = inspect(engine).get_table_names()
+    print(f"  Migration: tables found = {existing}")
 
     col_changes = [
-        ("section16_filings",  "insider_cik",  "VARCHAR(500)"),
-        ("section16_filings",  "insider_name", "VARCHAR(500)"),
-        ("insider_analytics",  "insider_cik",  "VARCHAR(500)"),
-        ("insider_analytics",  "insider_name", "VARCHAR(500)"),
+        ("section16_filings", "insider_cik"),
+        ("section16_filings", "insider_name"),
+        ("insider_analytics", "insider_cik"),
+        ("insider_analytics", "insider_name"),
     ]
     with engine.connect() as conn:
-        for table, col, new_type in col_changes:
+        for table, col in col_changes:
             if table not in existing:
+                print(f"  Migration: {table} not found, skipping")
                 continue
             try:
                 conn.execute(text(
-                    f"ALTER TABLE {table} ALTER COLUMN {col} TYPE {new_type}"
+                    f"ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT"
                 ))
                 conn.commit()
+                print(f"  Migration: {table}.{col} → TEXT  OK")
             except Exception as exc:
                 conn.rollback()
-                print(f"  Migration note ({table}.{col}): {exc}")
+                print(f"  Migration FAILED ({table}.{col}): {exc}")
 
 
 def init_db():

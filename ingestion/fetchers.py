@@ -50,10 +50,12 @@ def _get_owners_meta(form_obj) -> dict:
         return dict(insider_name=None, insider_cik=None, is_director=None,
                     is_officer=None, is_ten_pct_owner=None,
                     officer_title=None, position=None)
-    names     = " / ".join(o.name          for o in owners.owners if o.name)
-    ciks      = " / ".join(str(o.cik)      for o in owners.owners if o.cik)
-    titles    = " / ".join(o.officer_title for o in owners.owners if o.officer_title)
-    positions = " / ".join(o.position      for o in owners.owners if o.position)
+    # Use [:500] so multi-entity filings (e.g. ValueAct with 8 reporting
+    # owners) never exceed DB column width regardless of migration state.
+    names     = (" / ".join(o.name          for o in owners.owners if o.name))[:500]
+    ciks      = (" / ".join(str(o.cik)      for o in owners.owners if o.cik))[:500]
+    titles    = (" / ".join(o.officer_title for o in owners.owners if o.officer_title))[:500]
+    positions = (" / ".join(o.position      for o in owners.owners if o.position))[:500]
     return dict(
         insider_name     = names     or None,
         insider_cik      = ciks      or None,
