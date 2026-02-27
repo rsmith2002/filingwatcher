@@ -102,12 +102,10 @@ def price_with_transactions(
 
         # Per-marker styling based on selected insider
         is_sel = (subset["insider_name"] == selected_insider) if has_selection else pd.Series([False] * len(subset), index=subset.index)
-        marker_sizes    = [cfg["size"] * 1.8 if (has_selection and s) else cfg["size"] for s in is_sel]
+        marker_sizes     = [cfg["size"] * 1.8 if (has_selection and s) else cfg["size"] for s in is_sel]
         marker_opacities = [1.0 if (not has_selection or s) else 0.15 for s in is_sel]
-        marker_lines    = [
-            dict(color=THEME["award_col"], width=2) if (has_selection and s) else dict(color="white", width=0.5)
-            for s in is_sel
-        ]
+        line_colors      = [THEME["award_col"] if (has_selection and s) else "rgba(255,255,255,0.4)" for s in is_sel]
+        line_widths      = [2 if (has_selection and s) else 0.5 for s in is_sel]
 
         hover = (
             subset["insider_name"].fillna("Unknown") + "<br>"
@@ -126,7 +124,7 @@ def price_with_transactions(
                 color=cfg["color"],
                 size=marker_sizes,
                 opacity=marker_opacities,
-                line=marker_lines,
+                line=dict(color=line_colors, width=line_widths),
             ),
             text=hover,
             hovertemplate="%{text}<extra></extra>",
@@ -303,13 +301,11 @@ def return_window_scatter(
     is_selected = (df["insider_name"] == selected_insider) if selected_insider else pd.Series([False] * len(df), index=df.index)
     has_selection = selected_insider and is_selected.any()
 
-    colors  = df[col].apply(lambda v: THEME["buy_col"] if v >= 0 else THEME["sell_col"])
-    opacity = df.index.map(lambda i: 1.0 if (not has_selection or is_selected.loc[i]) else 0.2)
-    sizes   = df.index.map(lambda i: df.loc[i, "bubble_size"] * (1.8 if (has_selection and is_selected.loc[i]) else 1.0))
-    borders = df.index.map(lambda i:
-        dict(color=THEME["award_col"], width=2.5) if (has_selection and is_selected.loc[i])
-        else dict(color="white", width=0.5)
-    )
+    colors       = df[col].apply(lambda v: THEME["buy_col"] if v >= 0 else THEME["sell_col"])
+    opacity      = [1.0 if (not has_selection or is_selected.loc[i]) else 0.2 for i in df.index]
+    sizes        = [df.loc[i, "bubble_size"] * (1.8 if (has_selection and is_selected.loc[i]) else 1.0) for i in df.index]
+    border_colors = [THEME["award_col"] if (has_selection and is_selected.loc[i]) else "rgba(255,255,255,0.3)" for i in df.index]
+    border_widths = [2.5 if (has_selection and is_selected.loc[i]) else 0.5 for i in df.index]
 
     hovers = (
         df["insider_name"] + "<br>"
@@ -324,9 +320,9 @@ def return_window_scatter(
         mode="markers+text",
         marker=dict(
             color=colors.tolist(),
-            size=list(sizes),
-            line=[b for b in borders],
-            opacity=list(opacity),
+            size=sizes,
+            line=dict(color=border_colors, width=border_widths),
+            opacity=opacity,
         ),
         text=df["ticker"],
         textposition="top center",
