@@ -58,11 +58,17 @@ def price_with_transactions(
 
     # ── Transaction markers ───────────────────────────────────────────────
     # Only open-market + priced, non-derivative rows
-    mkt = filings_df[
-        filings_df["transaction_code"].isin(["P", "S", "A"])
-        & filings_df["transaction_date"].notna()
-        & (filings_df["is_derivative"] == False)
-    ].copy()
+    # Guard: empty DataFrame (no columns) when no filings exist yet
+    if filings_df.empty or "transaction_code" not in filings_df.columns:
+        mkt = pd.DataFrame(columns=["transaction_code", "transaction_date",
+                                    "is_derivative", "insider_name",
+                                    "officer_title", "shares", "price"])
+    else:
+        mkt = filings_df[
+            filings_df["transaction_code"].isin(["P", "S", "A"])
+            & filings_df["transaction_date"].notna()
+            & (filings_df["is_derivative"] == False)
+        ].copy()
     mkt["transaction_date"] = pd.to_datetime(mkt["transaction_date"])
 
     code_config = {
