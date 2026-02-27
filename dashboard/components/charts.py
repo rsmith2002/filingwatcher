@@ -130,6 +130,11 @@ def unrealized_pnl_bar(analytics_df: pd.DataFrame) -> go.Figure:
     Horizontal bar — unrealized P&L % on open-market purchases, or
     sale-timing view if no purchases exist.
     """
+    if analytics_df.empty or "open_mkt_wacb" not in analytics_df.columns:
+        fig = go.Figure()
+        fig.update_layout(**_LAYOUT_BASE, title="No analytics data yet.")
+        return fig
+
     buyers = analytics_df[
         analytics_df["open_mkt_wacb"].notna()
         & analytics_df["open_mkt_unrealized_pct"].notna()
@@ -197,6 +202,11 @@ def unrealized_pnl_bar(analytics_df: pd.DataFrame) -> go.Figure:
 
 def position_values_bar(analytics_df: pd.DataFrame, top_n: int = 20) -> go.Figure:
     """Top insider positions by current market value."""
+    if analytics_df.empty or "current_position_value" not in analytics_df.columns:
+        fig = go.Figure()
+        fig.update_layout(**_LAYOUT_BASE, title="No position data available.")
+        return fig
+
     pos = (
         analytics_df[analytics_df["current_position_value"].notna()]
         .sort_values("current_position_value", ascending=True)
@@ -254,6 +264,11 @@ def return_window_scatter(analytics_df: pd.DataFrame, window: str = "3m") -> go.
     Bubble size = position value. Color = buy_col / sell_col by sign.
     """
     col = f"pct_{window}"
+    if analytics_df.empty or col not in analytics_df.columns:
+        fig = go.Figure()
+        fig.update_layout(**_LAYOUT_BASE, title=f"No return data for {window} window.")
+        return fig
+
     df  = analytics_df[analytics_df[col].notna() & analytics_df["entry_price"].notna()].copy()
     if df.empty:
         fig = go.Figure()
