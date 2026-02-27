@@ -81,12 +81,12 @@ def price_with_transactions(
         subset = mkt[mkt["transaction_code"] == code]
         if subset.empty:
             continue
-        # Use transaction price if available; otherwise use nearest stock close
+        # Always pin markers to the nearest stock close so they sit on the
+        # price line regardless of stock splits (Form 4 prices are unadjusted).
+        # The actual transaction price is shown in the hover tooltip.
         y_vals = []
         for _, row in subset.iterrows():
-            if pd.notna(row.get("price")) and row["price"] > 0:
-                y_vals.append(row["price"])
-            elif not prices_df.empty:
+            if not prices_df.empty:
                 dt = row["transaction_date"]
                 future = prices_df.index[prices_df.index >= dt]
                 y_vals.append(float(prices_df.loc[future[0], "close"]) if len(future) else None)
