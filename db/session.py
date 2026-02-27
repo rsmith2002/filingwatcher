@@ -70,9 +70,40 @@ def _drop_accession_unique_constraints():
                 print(f"  Migration note ({table}): {exc}")
 
 
+def _widen_varchar_columns():
+    """
+    Widen columns that were originally too short for multi-owner filings
+    (e.g. ValueAct has 8 reporting entities whose CIKs get concatenated).
+    Safe to run repeatedly — TYPE change is idempotent if already wider.
+    """
+    from sqlalchemy import inspect, text
+    engine = get_engine()
+    existing = inspect(engine).get_table_names()
+
+    col_changes = [
+        ("section16_filings",  "insider_cik",  "VARCHAR(500)"),
+        ("section16_filings",  "insider_name", "VARCHAR(500)"),
+        ("insider_analytics",  "insider_cik",  "VARCHAR(500)"),
+        ("insider_analytics",  "insider_name", "VARCHAR(500)"),
+    ]
+    with engine.connect() as conn:
+        for table, col, new_type in col_changes:
+            if table not in existing:
+                continue
+            try:
+                conn.execute(text(
+                    f"ALTER TABLE {table} ALTER COLUMN {col} TYPE {new_type}"
+                ))
+                conn.commit()
+            except Exception as exc:
+                conn.rollback()
+                print(f"  Migration note ({table}.{col}): {exc}")
+
+
 def init_db():
     """Create all tables if they don't exist. Safe to call repeatedly."""
     engine = get_engine()
     _drop_accession_unique_constraints()
+    _widen_varchar_columns()
     Base.metadata.create_all(engine)
     print("Database tables verified / created.")
