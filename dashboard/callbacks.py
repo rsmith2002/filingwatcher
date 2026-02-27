@@ -263,25 +263,51 @@ def register_callbacks(app):
         Input("store-filtered-analytics",  "data"),
     )
     def update_charts(ticker, filing_records, analytics_records):
-        filings_df  = pd.DataFrame(filing_records  or [])
-        analytics_df = pd.DataFrame(analytics_records or [])
+        import traceback
+        import plotly.graph_objects as go
+        from dashboard.components.charts import _LAYOUT_BASE
 
-        # Price series for selected ticker
-        prices_df = pd.DataFrame()
-        if ticker:
-            ps = get_price_series(ticker)
-            if not ps.empty:
-                prices_df = ps.rename("close").to_frame()
+        def _err_fig(msg: str) -> go.Figure:
+            f = go.Figure()
+            f.update_layout(**_LAYOUT_BASE, title=msg[:200])
+            return f
 
-        ticker_filings = (
-            filings_df[filings_df["ticker"] == ticker].copy()
-            if not filings_df.empty and ticker else pd.DataFrame()
-        )
+        try:
+            filings_df  = pd.DataFrame(filing_records  or [])
+            analytics_df = pd.DataFrame(analytics_records or [])
 
-        fig1 = price_with_transactions(ticker or "—", prices_df, ticker_filings)
-        fig2 = unrealized_pnl_bar(analytics_df)
-        fig3 = position_values_bar(analytics_df)
-        return fig1, fig2, fig3
+            # Price series for selected ticker
+            prices_df = pd.DataFrame()
+            if ticker:
+                try:
+                    ps = get_price_series(ticker)
+                    if not ps.empty:
+                        prices_df = ps.rename("close").to_frame()
+                except Exception as exc:
+                    return (
+                        _err_fig(f"DB error fetching prices: {exc}"),
+                        _err_fig("DB error"),
+                        _err_fig("DB error"),
+                    )
+
+            ticker_filings = (
+                filings_df[filings_df["ticker"] == ticker].copy()
+                if not filings_df.empty and ticker else pd.DataFrame()
+            )
+
+            fig1 = price_with_transactions(ticker or "—", prices_df, ticker_filings)
+            fig2 = unrealized_pnl_bar(analytics_df)
+            fig3 = position_values_bar(analytics_df)
+            return fig1, fig2, fig3
+
+        except Exception as exc:
+            tb = traceback.format_exc().splitlines()
+            short = " | ".join(tb[-4:])
+            return (
+                _err_fig(f"Chart error: {short}"),
+                _err_fig(f"Chart error: {exc}"),
+                _err_fig(f"Chart error: {exc}"),
+            )
 
     # ── Flags ────────────────────────────────────────────────────────────
     @app.callback(
