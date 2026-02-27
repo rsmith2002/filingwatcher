@@ -85,6 +85,8 @@ def _widen_varchar_columns():
     col_changes = [
         ("section16_filings", "insider_cik"),
         ("section16_filings", "insider_name"),
+        ("section16_filings", "ownership_type"),
+        ("section16_filings", "transaction_type"),
         ("insider_analytics", "insider_cik"),
         ("insider_analytics", "insider_name"),
     ]
