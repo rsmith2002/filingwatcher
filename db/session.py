@@ -37,23 +37,37 @@ def get_session() -> Session:
 
 def _drop_accession_unique_constraints():
     """
-    One-time migration: remove unique constraints on accession_no so that
-    multi-transaction filings (many rows, same accession_no) can be stored.
-    Safe to run repeatedly — IF NOT EXISTS / DROP CONSTRAINT IF EXISTS is idempotent.
+    One-time migration: SQLAlchemy created a UNIQUE INDEX named ix_<table>_accession_no
+    (from index=True + unique=True on the column). Drop it and recreate as a plain
+    (non-unique) index so multiple rows per filing can be stored.
+    Safe to run repeatedly — all statements use IF EXISTS / IF NOT EXISTS.
     """
-    from sqlalchemy import text
+    from sqlalchemy import inspect, text
     engine = get_engine()
-    stmts = [
-        "ALTER TABLE section16_filings DROP CONSTRAINT IF EXISTS section16_filings_accession_no_key",
-        "ALTER TABLE large_holder_stakes DROP CONSTRAINT IF EXISTS large_holder_stakes_accession_no_key",
+
+    # Only act on tables that actually exist (skip on a fresh empty DB)
+    existing = inspect(engine).get_table_names()
+
+    ops = [
+        ("section16_filings",  "ix_section16_filings_accession_no"),
+        ("large_holder_stakes","ix_large_holder_stakes_accession_no"),
     ]
     with engine.connect() as conn:
-        for stmt in stmts:
+        for table, idx in ops:
+            if table not in existing:
+                continue
             try:
-                conn.execute(text(stmt))
+                # Drop the unique index
+                conn.execute(text(f"DROP INDEX IF EXISTS {idx}"))
                 conn.commit()
-            except Exception:
+                # Recreate as plain (non-unique) index for query performance
+                conn.execute(text(
+                    f"CREATE INDEX IF NOT EXISTS {idx} ON {table} (accession_no)"
+                ))
+                conn.commit()
+            except Exception as exc:
                 conn.rollback()
+                print(f"  Migration note ({table}): {exc}")
 
 
 def init_db():
