@@ -51,15 +51,29 @@ def _query_filings(
         else:
             return pd.DataFrame()
 
-        # Role filter — skip entirely when all roles selected (avoids filtering out
-        # rows where all flags are False because any() resolved to False in fetcher)
+        # Role filter — boolean flags are unreliable in many filings so we
+        # also use officer_title text as a fallback heuristic.
         _ALL_ROLES = {"director", "officer", "ten_pct"}
         if set(roles) != _ALL_ROLES:
             role_filters = []
             if "director" in roles:
-                role_filters.append(Section16Filing.is_director == True)
+                role_filters.append(or_(
+                    Section16Filing.is_director == True,
+                    Section16Filing.officer_title.ilike("%director%"),
+                    Section16Filing.officer_title.ilike("%chair%"),
+                    Section16Filing.officer_title.ilike("%trustee%"),
+                ))
             if "officer" in roles:
-                role_filters.append(Section16Filing.is_officer == True)
+                role_filters.append(or_(
+                    Section16Filing.is_officer == True,
+                    and_(
+                        Section16Filing.officer_title.isnot(None),
+                        Section16Filing.officer_title != "",
+                        ~Section16Filing.officer_title.ilike("%director%"),
+                        ~Section16Filing.officer_title.ilike("%chair%"),
+                        ~Section16Filing.officer_title.ilike("%trustee%"),
+                    )
+                ))
             if "ten_pct" in roles:
                 role_filters.append(Section16Filing.is_ten_pct_owner == True)
             if role_filters:
@@ -101,9 +115,23 @@ def _query_analytics(
         if set(roles) != _ALL_ROLES:
             role_filters = []
             if "director" in roles:
-                role_filters.append(InsiderAnalytics.is_director == True)
+                role_filters.append(or_(
+                    InsiderAnalytics.is_director == True,
+                    InsiderAnalytics.officer_title.ilike("%director%"),
+                    InsiderAnalytics.officer_title.ilike("%chair%"),
+                    InsiderAnalytics.officer_title.ilike("%trustee%"),
+                ))
             if "officer" in roles:
-                role_filters.append(InsiderAnalytics.is_officer == True)
+                role_filters.append(or_(
+                    InsiderAnalytics.is_officer == True,
+                    and_(
+                        InsiderAnalytics.officer_title.isnot(None),
+                        InsiderAnalytics.officer_title != "",
+                        ~InsiderAnalytics.officer_title.ilike("%director%"),
+                        ~InsiderAnalytics.officer_title.ilike("%chair%"),
+                        ~InsiderAnalytics.officer_title.ilike("%trustee%"),
+                    )
+                ))
             if "ten_pct" in roles:
                 role_filters.append(InsiderAnalytics.is_ten_pct_owner == True)
             if role_filters:

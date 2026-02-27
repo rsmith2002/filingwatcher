@@ -12,83 +12,218 @@ from dashboard.callbacks import register_callbacks
 from dashboard.layout import build_layout
 
 # ---------------------------------------------------------------------------
-# Custom CSS injected inline (no external files needed)
+# Custom CSS  —  "Carbon Amber" theme
+# Fonts: Syne (UI) · JetBrains Mono (data)
 # ---------------------------------------------------------------------------
 _EXTRA_CSS = """
-/* Sidebar labels */
-.sidebar-label {
-    color: #888;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
-    display: block;
+:root {
+  --c-bg:        #080810;
+  --c-surface:   #0d0e1b;
+  --c-elevated:  #111225;
+  --c-border:    #1c1e30;
+  --c-border-hi: #272a40;
+  --c-amber:     #f0a31a;
+  --c-amber-lo:  rgba(240,163,26,0.10);
+  --c-amber-hi:  #ffc04d;
+  --c-green:     #17d890;
+  --c-red:       #ff3d5a;
+  --c-blue:      #5b8fff;
+  --c-text:      #c6bead;
+  --c-text-dim:  #5a5347;
+  --c-text-hi:   #e8e0d2;
+  --font-ui:    'Syne', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, monospace;
 }
 
-/* Tabs */
-.custom-tabs { border-bottom: 1px solid #2a2a4a !important; }
-.custom-tab {
-    background-color: #16213e !important;
-    color: #888 !important;
-    border: none !important;
-    border-bottom: 2px solid transparent !important;
-    padding: 10px 20px !important;
-    font-size: 13px !important;
-    transition: color 0.2s;
+body, html {
+  background-color: var(--c-bg) !important;
+  color: var(--c-text) !important;
 }
-.custom-tab:hover { color: #e0e0e0 !important; }
+
+/* ── Sidebar labels ── */
+.sidebar-label {
+  color: var(--c-amber) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 9px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.16em !important;
+  margin-bottom: 8px !important;
+  display: block !important;
+  opacity: 0.85;
+}
+
+/* ── Tabs ── */
+.custom-tabs {
+  border-bottom: 1px solid var(--c-border) !important;
+  background-color: var(--c-surface) !important;
+}
+.custom-tab {
+  background-color: transparent !important;
+  color: var(--c-text-dim) !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  padding: 14px 28px !important;
+  font-family: var(--font-ui) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  transition: color 0.15s ease !important;
+}
+.custom-tab:hover {
+  color: var(--c-text) !important;
+  background-color: rgba(255,255,255,0.02) !important;
+}
 .custom-tab--selected,
 .custom-tab-selected {
-    background-color: #1a1a2e !important;
-    color: #4c8eff !important;
-    border-bottom: 2px solid #4c8eff !important;
-    font-weight: 600 !important;
+  background-color: transparent !important;
+  color: var(--c-amber) !important;
+  border-bottom: 2px solid var(--c-amber) !important;
+  font-weight: 700 !important;
 }
 
-/* Dropdown dark */
-.dark-dropdown .Select-control,
-.dark-dropdown .Select-menu-outer,
-.dark-dropdown .VirtualizedSelectFocusedOption {
-    background-color: #16213e !important;
-    color: #e0e0e0 !important;
-    border-color: #2a2a4a !important;
+/* ── Dropdowns (Dash 1.x class names) ── */
+.dark-dropdown .Select-control {
+  background-color: var(--c-surface) !important;
+  color: var(--c-text) !important;
+  border: 1px solid var(--c-border) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
 }
-.Select-value-label { color: #e0e0e0 !important; }
+.dark-dropdown .Select-menu-outer {
+  background-color: var(--c-elevated) !important;
+  border: 1px solid var(--c-border-hi) !important;
+}
+.dark-dropdown .VirtualizedSelectFocusedOption,
+.dark-dropdown .Select-option.is-focused {
+  background-color: var(--c-amber-lo) !important;
+  color: var(--c-amber) !important;
+}
+.Select-value-label { color: var(--c-text) !important; }
 
-/* AG Grid dark theme overrides */
+/* ── AG Grid ── */
 .ag-theme-alpine-dark {
-    --ag-background-color: #1a1a2e;
-    --ag-header-background-color: #16213e;
-    --ag-odd-row-background-color: #1e1e35;
-    --ag-border-color: #2a2a4a;
-    --ag-header-column-separator-color: #2a2a4a;
-    --ag-font-size: 12px;
-    --ag-row-hover-color: rgba(76,142,255,0.08);
+  --ag-background-color:              var(--c-bg);
+  --ag-header-background-color:       var(--c-surface);
+  --ag-odd-row-background-color:      #0a0b14;
+  --ag-border-color:                  var(--c-border);
+  --ag-header-column-separator-color: var(--c-border);
+  --ag-font-size:                     12px;
+  --ag-row-hover-color:               var(--c-amber-lo);
+  --ag-selected-row-background-color: var(--c-amber-lo);
+  --ag-font-family:                   var(--font-mono);
+  --ag-foreground-color:              var(--c-text);
+  --ag-header-foreground-color:       var(--c-amber);
+  --ag-cell-horizontal-padding:       14px;
+}
+.ag-theme-alpine-dark .ag-header-cell-label {
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #1a1a2e; }
-::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #4c8eff; }
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-border-hi); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-amber); }
 
-/* Bootstrap checklist labels */
-.form-check-label { font-size: 13px; color: #ccc; }
-.form-check-input:checked { background-color: #4c8eff; border-color: #4c8eff; }
+/* ── Form controls ── */
+.form-check-label {
+  font-size: 12px !important;
+  color: var(--c-text) !important;
+  font-family: var(--font-ui) !important;
+}
+.form-check-input:checked {
+  background-color: var(--c-amber) !important;
+  border-color: var(--c-amber) !important;
+}
+.form-switch .form-check-input {
+  background-color: var(--c-border-hi) !important;
+  border-color: var(--c-border-hi) !important;
+}
+.form-switch .form-check-input:checked {
+  background-color: var(--c-amber) !important;
+  border-color: var(--c-amber) !important;
+}
+.form-control {
+  background-color: var(--c-surface) !important;
+  color: var(--c-text) !important;
+  border: 1px solid var(--c-border) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  border-radius: 3px !important;
+}
+.form-control:focus {
+  background-color: var(--c-surface) !important;
+  color: var(--c-text) !important;
+  border-color: var(--c-amber) !important;
+  box-shadow: 0 0 0 2px var(--c-amber-lo) !important;
+}
+.input-group-text {
+  background-color: var(--c-elevated) !important;
+  color: var(--c-text-dim) !important;
+  border: 1px solid var(--c-border) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+}
 
-/* Slider */
-.rc-slider-track { background-color: #4c8eff; }
-.rc-slider-handle { border-color: #4c8eff; }
+/* ── Slider ── */
+.rc-slider-track { background-color: var(--c-amber) !important; }
+.rc-slider-rail  { background-color: var(--c-border) !important; }
+.rc-slider-handle {
+  border-color: var(--c-amber) !important;
+  background-color: var(--c-surface) !important;
+  box-shadow: 0 0 0 2px var(--c-amber-lo) !important;
+  opacity: 1 !important;
+}
+.rc-slider-handle:hover,
+.rc-slider-handle:active {
+  border-color: var(--c-amber-hi) !important;
+}
+.rc-slider-mark-text {
+  color: var(--c-text-dim) !important;
+  font-size: 10px !important;
+  font-family: var(--font-mono) !important;
+}
+.rc-slider-dot { border-color: var(--c-border) !important; }
+.rc-slider-dot-active { border-color: var(--c-amber) !important; }
+
+/* ── Reset button ── */
+.btn-outline-secondary {
+  color: var(--c-text-dim) !important;
+  border-color: var(--c-border) !important;
+  background: transparent !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+}
+.btn-outline-secondary:hover {
+  background-color: var(--c-border) !important;
+  color: var(--c-text) !important;
+  border-color: var(--c-border-hi) !important;
+}
+
+/* ── HR divider ── */
+hr { border-color: var(--c-border) !important; opacity: 1 !important; }
 """
 
 # ---------------------------------------------------------------------------
 # App initialisation
 # ---------------------------------------------------------------------------
 
+_GOOGLE_FONTS = (
+    "https://fonts.googleapis.com/css2?"
+    "family=Syne:wght@400;500;600;700;800&"
+    "family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&"
+    "display=swap"
+)
+
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.DARKLY,
-                           dbc.icons.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.DARKLY, dbc.icons.BOOTSTRAP, _GOOGLE_FONTS],
     title="CeoWatcher",
     update_title=None,
     suppress_callback_exceptions=True,

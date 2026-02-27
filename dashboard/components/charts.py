@@ -12,25 +12,29 @@ from plotly.subplots import make_subplots
 
 
 THEME = dict(
-    bg       = "#1a1a2e",
-    paper    = "#16213e",
-    grid     = "#2a2a4a",
-    text     = "#e0e0e0",
-    buy_col  = "#00d4aa",
-    sell_col = "#ff4d6d",
-    line_col = "#4c8eff",
-    award_col = "#ffd700",
+    bg        = "#080810",
+    paper     = "#0d0e1b",
+    grid      = "#1c1e30",
+    text      = "#c6bead",
+    buy_col   = "#17d890",
+    sell_col  = "#ff3d5a",
+    line_col  = "#5b8fff",
+    award_col = "#f0a31a",
 )
+
+_MONO = "'JetBrains Mono', ui-monospace, monospace"
 
 _LAYOUT_BASE = dict(
     paper_bgcolor = THEME["paper"],
     plot_bgcolor  = THEME["bg"],
-    font          = dict(color=THEME["text"], family="Inter, sans-serif", size=12),
-    margin        = dict(l=50, r=20, t=50, b=50),
+    font          = dict(color=THEME["text"], family=_MONO, size=11),
+    margin        = dict(l=60, r=20, t=50, b=50),
     legend        = dict(bgcolor="rgba(0,0,0,0)", bordercolor=THEME["grid"],
                          borderwidth=1, font=dict(size=11)),
-    xaxis         = dict(gridcolor=THEME["grid"], showgrid=True, zeroline=False),
-    yaxis         = dict(gridcolor=THEME["grid"], showgrid=True, zeroline=False),
+    xaxis         = dict(gridcolor=THEME["grid"], showgrid=True, zeroline=False,
+                         tickfont=dict(family=_MONO, size=10), linecolor=THEME["grid"]),
+    yaxis         = dict(gridcolor=THEME["grid"], showgrid=True, zeroline=False,
+                         tickfont=dict(family=_MONO, size=10), linecolor=THEME["grid"]),
 )
 
 

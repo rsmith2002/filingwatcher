@@ -32,10 +32,15 @@ def _sidebar() -> dbc.Col:
         html.Div([
             # ── Logo / title ──────────────────────────────────────────────
             html.Div([
-                html.H4("CeoWatcher", className="mb-0",
-                        style={"color": "#4c8eff", "fontWeight": "700",
-                               "letterSpacing": "1px"}),
-                html.Small("insider intelligence", style={"color": "#888"}),
+                html.H4("CEOWATCHER", className="mb-0",
+                        style={"color": "#f0a31a", "fontWeight": "800",
+                               "letterSpacing": "0.10em", "fontSize": "20px",
+                               "fontFamily": "'Syne', sans-serif"}),
+                html.Small("INSIDER INTELLIGENCE",
+                           style={"color": "#5a5347", "fontSize": "8px",
+                                  "letterSpacing": "0.22em", "display": "block",
+                                  "marginTop": "3px",
+                                  "fontFamily": "'JetBrains Mono', monospace"}),
             ], className="mb-4"),
 
             # ── Last updated badge ────────────────────────────────────────
@@ -89,8 +94,6 @@ def _sidebar() -> dbc.Col:
                 type="text",
                 debounce=True,
                 className="mb-3",
-                style={"backgroundColor": "#16213e", "color": "#e0e0e0",
-                       "border": "1px solid #2a2a4a"},
             ),
 
             # ── Return window ─────────────────────────────────────────────
@@ -131,11 +134,12 @@ def _sidebar() -> dbc.Col:
         style={
             "width": SIDEBAR_WIDTH,
             "minWidth": SIDEBAR_WIDTH,
-            "padding": "20px 16px",
-            "backgroundColor": "#16213e",
+            "padding": "24px 18px 24px 20px",
+            "backgroundColor": "#0d0e1b",
             "height": "100vh",
             "overflowY": "auto",
-            "borderRight": "1px solid #2a2a4a",
+            "borderRight": "1px solid #1c1e30",
+            "borderLeft": "3px solid #f0a31a",
             "position": "sticky",
             "top": 0,
         }),
@@ -312,5 +316,5 @@ def build_layout() -> html.Div:
         style={"display": "flex", "flexWrap": "nowrap", "minHeight": "100vh"},
         className="g-0"),
     ],
-    style={"backgroundColor": "#1a1a2e", "minHeight": "100vh",
-           "fontFamily": "Inter, sans-serif"})
+    style={"backgroundColor": "#080810", "minHeight": "100vh",
+           "fontFamily": "'Syne', system-ui, sans-serif"})
