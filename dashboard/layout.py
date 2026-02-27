@@ -230,7 +230,15 @@ def _tab_charts() -> dcc.Tab:
                         style={"width": "200px"},
                     ),
                 ], width="auto"),
-            ], className="mt-3 mb-2"),
+                dbc.Col([
+                    html.Label("\u00a0", style={"fontSize": "12px"}),
+                    dbc.Button(
+                        "Show All Insiders", id="btn-clear-insider",
+                        size="sm", outline=True, color="secondary",
+                        style={"marginTop": "2px"},
+                    ),
+                ], width="auto"),
+            ], className="mt-3 mb-2", align="end"),
             dbc.Row([
                 dbc.Col(dcc.Graph(id="chart-price-transactions",
                                   config={"displayModeBar": True}),
@@ -293,6 +301,8 @@ def build_layout() -> html.Div:
         # Store for filtered data shared across callbacks
         dcc.Store(id="store-filtered-filings"),
         dcc.Store(id="store-filtered-analytics"),
+        # Selected insider — set by clicking any grid row
+        dcc.Store(id="store-selected-insider", data=None),
 
         dbc.Row([
             # Sidebar

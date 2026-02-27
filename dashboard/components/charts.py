@@ -40,8 +40,9 @@ _LAYOUT_BASE = dict(
 
 def price_with_transactions(
     ticker: str,
-    prices_df: pd.DataFrame,       # date-indexed, 'close' column
-    filings_df: pd.DataFrame,      # filtered section16 rows for this ticker
+    prices_df: pd.DataFrame,            # date-indexed, 'close' column
+    filings_df: pd.DataFrame,           # filtered section16 rows for this ticker
+    selected_insider: str | None = None,
 ) -> go.Figure:
     """
     Stock price line with buy/sell/award markers for every insider.
@@ -81,6 +82,8 @@ def price_with_transactions(
         "A": dict(symbol="star",          color=THEME["award_col"], size=9,  name="Award (A)"),
     }
 
+    has_selection = bool(selected_insider)
+
     for code, cfg in code_config.items():
         subset = mkt[mkt["transaction_code"] == code]
         if subset.empty:
@@ -97,6 +100,15 @@ def price_with_transactions(
             else:
                 y_vals.append(None)
 
+        # Per-marker styling based on selected insider
+        is_sel = (subset["insider_name"] == selected_insider) if has_selection else pd.Series([False] * len(subset), index=subset.index)
+        marker_sizes    = [cfg["size"] * 1.8 if (has_selection and s) else cfg["size"] for s in is_sel]
+        marker_opacities = [1.0 if (not has_selection or s) else 0.15 for s in is_sel]
+        marker_lines    = [
+            dict(color=THEME["award_col"], width=2) if (has_selection and s) else dict(color="white", width=0.5)
+            for s in is_sel
+        ]
+
         hover = (
             subset["insider_name"].fillna("Unknown") + "<br>"
             + subset["officer_title"].fillna("").apply(lambda x: f"{x}<br>" if x else "")
@@ -112,8 +124,9 @@ def price_with_transactions(
             marker=dict(
                 symbol=cfg["symbol"],
                 color=cfg["color"],
-                size=cfg["size"],
-                line=dict(color="white", width=0.5),
+                size=marker_sizes,
+                opacity=marker_opacities,
+                line=marker_lines,
             ),
             text=hover,
             hovertemplate="%{text}<extra></extra>",
@@ -261,10 +274,15 @@ def position_values_bar(analytics_df: pd.DataFrame, top_n: int = 20) -> go.Figur
     return fig
 
 
-def return_window_scatter(analytics_df: pd.DataFrame, window: str = "3m") -> go.Figure:
+def return_window_scatter(
+    analytics_df: pd.DataFrame,
+    window: str = "3m",
+    selected_insider: str | None = None,
+) -> go.Figure:
     """
     Scatter: x = entry_price, y = return in selected window.
     Bubble size = position value. Color = buy_col / sell_col by sign.
+    If selected_insider is set, that bubble is highlighted with an amber ring.
     """
     col = f"pct_{window}"
     if analytics_df.empty or col not in analytics_df.columns:
@@ -272,18 +290,27 @@ def return_window_scatter(analytics_df: pd.DataFrame, window: str = "3m") -> go.
         fig.update_layout(**_LAYOUT_BASE, title=f"No return data for {window} window.")
         return fig
 
-    df  = analytics_df[analytics_df[col].notna() & analytics_df["entry_price"].notna()].copy()
+    df = analytics_df[analytics_df[col].notna() & analytics_df["entry_price"].notna()].copy()
     if df.empty:
         fig = go.Figure()
-        fig.update_layout(**_LAYOUT_BASE,
-                          title=f"No return data for {window} window.")
+        fig.update_layout(**_LAYOUT_BASE, title=f"No return data for {window} window.")
         return fig
 
     df["bubble_size"] = (
         df["current_position_value"].fillna(1e6).clip(lower=1e5) / 1e6
     ).clip(upper=50).pow(0.5) * 8
 
-    colors = df[col].apply(lambda v: THEME["buy_col"] if v >= 0 else THEME["sell_col"])
+    is_selected = (df["insider_name"] == selected_insider) if selected_insider else pd.Series([False] * len(df), index=df.index)
+    has_selection = selected_insider and is_selected.any()
+
+    colors  = df[col].apply(lambda v: THEME["buy_col"] if v >= 0 else THEME["sell_col"])
+    opacity = df.index.map(lambda i: 1.0 if (not has_selection or is_selected.loc[i]) else 0.2)
+    sizes   = df.index.map(lambda i: df.loc[i, "bubble_size"] * (1.8 if (has_selection and is_selected.loc[i]) else 1.0))
+    borders = df.index.map(lambda i:
+        dict(color=THEME["award_col"], width=2.5) if (has_selection and is_selected.loc[i])
+        else dict(color="white", width=0.5)
+    )
+
     hovers = (
         df["insider_name"] + "<br>"
         + df["ticker"] + " | " + df["officer_title"].fillna("") + "<br>"
@@ -296,10 +323,10 @@ def return_window_scatter(analytics_df: pd.DataFrame, window: str = "3m") -> go.
         y=df[col],
         mode="markers+text",
         marker=dict(
-            color=colors,
-            size=df["bubble_size"],
-            line=dict(color="white", width=0.5),
-            opacity=0.8,
+            color=colors.tolist(),
+            size=list(sizes),
+            line=[b for b in borders],
+            opacity=list(opacity),
         ),
         text=df["ticker"],
         textposition="top center",
@@ -308,12 +335,14 @@ def return_window_scatter(analytics_df: pd.DataFrame, window: str = "3m") -> go.
         hovertemplate="%{customdata}<extra></extra>",
     ))
     fig.add_hline(y=0, line_dash="dash", line_color=THEME["grid"], line_width=1)
+    title_text = (
+        f"<b>Entry Price vs {window} Return</b> — {selected_insider}"
+        if has_selection else
+        f"<b>Entry Price vs {window} Return</b> — bubble size = position value"
+    )
     fig.update_layout(
         **_LAYOUT_BASE,
-        title=dict(
-            text=f"<b>Entry Price vs {window} Return</b> — bubble size = position value",
-            x=0.01, font=dict(size=14),
-        ),
+        title=dict(text=title_text, x=0.01, font=dict(size=14)),
         xaxis_title="Entry Price ($)",
         yaxis_title=f"Return over {window} (%)",
         height=420,

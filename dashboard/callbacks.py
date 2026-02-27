@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 
 import pandas as pd
-from dash import Input, Output, State, callback, html, no_update
+from dash import Input, Output, State, callback, callback_context, html, no_update
 from sqlalchemy import and_, or_
 
 from config import COMPANIES, RETURN_WINDOWS
@@ -266,8 +266,9 @@ def register_callbacks(app):
         Output("chart-return-scatter", "figure"),
         Input("store-filtered-analytics", "data"),
         Input("filter-window",            "value"),
+        Input("store-selected-insider",   "data"),
     )
-    def update_leaderboard(records, window):
+    def update_leaderboard(records, window, selected_insider):
         window = window or "3m"
         if not records:
             import plotly.graph_objects as go
@@ -279,28 +280,40 @@ def register_callbacks(app):
         col = f"pct_{window}"
         if col in df.columns:
             df = df.sort_values(col, ascending=False, na_position="last")
-        return df_to_records(df), return_window_scatter(df, window)
+        return df_to_records(df), return_window_scatter(df, window, selected_insider)
 
     # ── Price Charts ─────────────────────────────────────────────────────
     @app.callback(
         Output("chart-price-transactions", "figure"),
         Output("chart-unrealized-pnl",     "figure"),
         Output("chart-position-values",    "figure"),
+        Output("chart-ticker-select",      "value"),
         Input("chart-ticker-select",       "value"),
         Input("store-filtered-filings",    "data"),
         Input("store-filtered-analytics",  "data"),
+        Input("store-selected-insider",    "data"),
     )
-    def update_charts(ticker, filing_records, analytics_records):
+    def update_charts(ticker, filing_records, analytics_records, selected_insider):
         import traceback
         import plotly.graph_objects as go
-
-        _DARK = dict(paper_bgcolor="#16213e", plot_bgcolor="#1a1a2e",
-                     font=dict(color="#e0e0e0"))
+        from dashboard.components.charts import _LAYOUT_BASE
 
         def _err_fig(msg: str) -> go.Figure:
             f = go.Figure()
-            f.update_layout(**_DARK, title=str(msg)[:300])
+            f.update_layout(**_LAYOUT_BASE, title=str(msg)[:300])
             return f
+
+        # If an insider was selected, auto-switch ticker to their ticker
+        new_ticker_value = no_update
+        if selected_insider and filing_records:
+            filings_df_full = pd.DataFrame(filing_records)
+            if not filings_df_full.empty and "insider_name" in filings_df_full.columns:
+                match = filings_df_full[filings_df_full["insider_name"] == selected_insider]
+                if not match.empty and "ticker" in match.columns:
+                    insider_ticker = match.iloc[0]["ticker"]
+                    if insider_ticker != ticker:
+                        ticker = insider_ticker
+                        new_ticker_value = insider_ticker
 
         try:
             filings_df   = pd.DataFrame(filing_records  or [])
@@ -318,6 +331,7 @@ def register_callbacks(app):
                         _err_fig(f"DB error fetching prices for {ticker}: {exc}"),
                         _err_fig("DB error — see price chart"),
                         _err_fig("DB error — see price chart"),
+                        new_ticker_value,
                     )
 
             ticker_filings = (
@@ -325,10 +339,10 @@ def register_callbacks(app):
                 if not filings_df.empty and ticker else pd.DataFrame()
             )
 
-            fig1 = price_with_transactions(ticker or "—", prices_df, ticker_filings)
+            fig1 = price_with_transactions(ticker or "—", prices_df, ticker_filings, selected_insider)
             fig2 = unrealized_pnl_bar(analytics_df)
             fig3 = position_values_bar(analytics_df)
-            return fig1, fig2, fig3
+            return fig1, fig2, fig3, new_ticker_value
 
         except Exception as exc:
             tb = traceback.format_exc().splitlines()
@@ -338,6 +352,7 @@ def register_callbacks(app):
                 _err_fig(f"ERROR: {short}"),
                 _err_fig(f"ERROR: {exc}"),
                 _err_fig(f"ERROR: {exc}"),
+                new_ticker_value,
             )
 
     # ── Flags ────────────────────────────────────────────────────────────
@@ -376,6 +391,44 @@ def register_callbacks(app):
             cards.append(card)
 
         return df_to_records(flags_df), cards
+
+    # ── Sync selected insider from grid click ────────────────────────────
+    @app.callback(
+        Output("store-selected-insider", "data"),
+        Input("grid-activity",    "selectedRows"),
+        Input("grid-leaderboard", "selectedRows"),
+        prevent_initial_call=True,
+    )
+    def sync_selected_insider(activity_rows, leader_rows):
+        triggered = callback_context.triggered[0]["prop_id"] if callback_context.triggered else ""
+        if "grid-activity" in triggered and activity_rows:
+            return activity_rows[0].get("insider_name")
+        if "grid-leaderboard" in triggered and leader_rows:
+            return leader_rows[0].get("insider_name")
+        return no_update
+
+    # ── Clear insider selection ───────────────────────────────────────────
+    @app.callback(
+        Output("store-selected-insider", "data", allow_duplicate=True),
+        Input("btn-clear-insider", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def clear_insider_selection(_):
+        return None
+
+    # ── Sync chart ticker dropdown to sidebar filter ──────────────────────
+    @app.callback(
+        Output("chart-ticker-select", "options"),
+        Output("chart-ticker-select", "value", allow_duplicate=True),
+        Input("filter-tickers",       "value"),
+        State("chart-ticker-select",  "value"),
+        prevent_initial_call=True,
+    )
+    def sync_chart_ticker_options(sidebar_tickers, current_value):
+        tickers = sidebar_tickers or [t for t, _ in COMPANIES]
+        options = [{"label": t, "value": t} for t in tickers]
+        value   = current_value if current_value in tickers else tickers[0]
+        return options, value
 
     # ── Reset filters ────────────────────────────────────────────────────
     @app.callback(

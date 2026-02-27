@@ -22,7 +22,10 @@ class FlagType:
     FIRST_PURCHASE      = "FIRST_PURCHASE"         # Insider's first ever Code=P in our data
     ACTIVIST_13D        = "ACTIVIST_13D"           # New Schedule 13D filed
     THRESHOLD_CROSS     = "THRESHOLD_CROSS"        # 10%+ owner crosses 5/10/15/20% threshold
-    REVERSAL_BUY        = "REVERSAL_BUY"           # Insider who only sold is now buying
+    REVERSAL_BUY        = "REVERSAL_BUY"           # (legacy) Insider who only sold is now buying
+    BULL_REVERSAL       = "BULL_REVERSAL"          # 3+ consecutive sells OR 1yr selling → now buying
+    CONVICTION_BUY      = "CONVICTION_BUY"         # Purchase increases holdings by ≥10%
+    DIP_BUY             = "DIP_BUY"               # Buying when stock is down ≥50% (1yr) or ≥20% (1mo)
 
 
 def _already_flagged(session, accession_no: str, flag_type: str) -> bool:
@@ -161,7 +164,7 @@ def _flag_first_purchases(new_filings: list, session) -> list[Flag]:
 
 
 def _flag_reversal_buys(new_filings: list, session) -> list[Flag]:
-    """Flag insiders who have exclusively sold in the past 90 days but are now buying."""
+    """(Legacy) Flag insiders who have exclusively sold in the past 90 days but are now buying."""
     flags = []
     cutoff = date.today() - timedelta(days=90)
     for f in new_filings:
@@ -195,6 +198,188 @@ def _flag_reversal_buys(new_filings: list, session) -> list[Flag]:
     return flags
 
 
+def _flag_bull_reversals(new_filings: list, session) -> list[Flag]:
+    """
+    Strong reversal signal: insider who had 3+ consecutive sells OR was selling
+    for 1+ year has now flipped to buying.
+    """
+    flags = []
+    for f in new_filings:
+        if f.transaction_code != "P" or f.is_derivative:
+            continue
+        if not f.transaction_date:
+            continue
+        if _already_flagged(session, f.accession_no, FlagType.BULL_REVERSAL):
+            continue
+
+        # Get all prior P/S transactions for this insider+ticker, most recent first
+        prior = session.query(Section16Filing).filter(
+            Section16Filing.ticker == f.ticker,
+            Section16Filing.insider_name == f.insider_name,
+            Section16Filing.transaction_code.in_(["P", "S"]),
+            Section16Filing.is_derivative == False,
+            Section16Filing.transaction_date < f.transaction_date,
+        ).order_by(Section16Filing.transaction_date.desc()).all()
+
+        if not prior:
+            continue
+
+        # Condition A: count consecutive sells from most recent backward
+        consecutive_sells = 0
+        for txn in prior:
+            if txn.transaction_code == "S":
+                consecutive_sells += 1
+            else:
+                break  # hit a non-sell — stop counting
+
+        # Condition B: any sells spanning ≥ 365 days before this buy, with no prior P
+        all_prior_sells = [t for t in prior if t.transaction_code == "S"]
+        all_prior_buys  = [t for t in prior if t.transaction_code == "P"]
+        sell_span_days  = 0
+        if all_prior_sells and not all_prior_buys:
+            oldest_sell = min(all_prior_sells, key=lambda t: t.transaction_date)
+            sell_span_days = (f.transaction_date - oldest_sell.transaction_date).days
+
+        if consecutive_sells >= 3:
+            desc = (
+                f"{f.insider_name} has been selling {f.ticker} for "
+                f"{consecutive_sells} consecutive transactions but just made an "
+                f"open-market BUY of {f.shares:,.0f} shares at ${f.price:.2f} "
+                f"on {f.transaction_date}. Flipping after sustained selling is a "
+                f"strong bullish reversal signal."
+            )
+        elif sell_span_days >= 365:
+            years = sell_span_days / 365
+            desc = (
+                f"{f.insider_name} had been exclusively selling {f.ticker} for "
+                f"{years:.1f} years but just made an open-market BUY of "
+                f"{f.shares:,.0f} shares at ${f.price:.2f} on {f.transaction_date}. "
+                f"Buying after over a year of selling is a strong reversal signal."
+            )
+        else:
+            continue
+
+        flags.append(Flag(
+            ticker=f.ticker,
+            insider_name=f.insider_name,
+            accession_no=f.accession_no,
+            flag_type=FlagType.BULL_REVERSAL,
+            severity="HIGH",
+            description=desc,
+        ))
+    return flags
+
+
+def _flag_conviction_buys(new_filings: list, session) -> list[Flag]:
+    """
+    Flag purchases that significantly increase the insider's reported holdings.
+    shares_remaining is the post-transaction balance; prior = shares_remaining - shares.
+    ≥25% increase → HIGH, ≥10% increase → MEDIUM.
+    """
+    flags = []
+    for f in new_filings:
+        if f.transaction_code != "P" or f.is_derivative:
+            continue
+        if not f.shares or not f.shares_remaining:
+            continue
+        prior_shares = f.shares_remaining - f.shares
+        if prior_shares <= 0:
+            continue
+        pct_increase = f.shares / prior_shares
+        if pct_increase < 0.10:
+            continue
+        if _already_flagged(session, f.accession_no, FlagType.CONVICTION_BUY):
+            continue
+
+        severity = "HIGH" if pct_increase >= 0.25 else "MEDIUM"
+        flags.append(Flag(
+            ticker=f.ticker,
+            insider_name=f.insider_name,
+            accession_no=f.accession_no,
+            flag_type=FlagType.CONVICTION_BUY,
+            severity=severity,
+            description=(
+                f"{f.insider_name} increased their {f.ticker} position by "
+                f"{pct_increase * 100:.0f}% — bought {f.shares:,.0f} shares "
+                f"(prior balance: {prior_shares:,.0f}) on {f.transaction_date}. "
+                f"Large % position increases are historically the strongest "
+                f"insider buy signals."
+            ),
+        ))
+    return flags
+
+
+def _flag_dip_buys(new_filings: list, session) -> list[Flag]:
+    """
+    Flag insiders buying when the stock is significantly depressed:
+    - Down ≥50% from 1 year ago (deep value buy)
+    - Down ≥20% from 1 month ago (catching a falling knife or genuine dip)
+    """
+    from db.models import PriceHistory
+    flags = []
+
+    for f in new_filings:
+        if f.transaction_code != "P" or f.is_derivative:
+            continue
+        if not f.transaction_date:
+            continue
+        if _already_flagged(session, f.accession_no, FlagType.DIP_BUY):
+            continue
+
+        # Use transaction price if available, else look up close from DB
+        txn_price = f.price if (f.price and f.price > 0) else None
+        if not txn_price:
+            row = session.query(PriceHistory.close).filter(
+                PriceHistory.ticker == f.ticker,
+                PriceHistory.date >= f.transaction_date,
+            ).order_by(PriceHistory.date).first()
+            if row:
+                txn_price = float(row[0])
+        if not txn_price:
+            continue
+
+        date_1yr = f.transaction_date - timedelta(days=365)
+        date_1mo = f.transaction_date - timedelta(days=30)
+
+        row_1yr = session.query(PriceHistory.close).filter(
+            PriceHistory.ticker == f.ticker,
+            PriceHistory.date <= date_1yr,
+        ).order_by(PriceHistory.date.desc()).first()
+
+        row_1mo = session.query(PriceHistory.close).filter(
+            PriceHistory.ticker == f.ticker,
+            PriceHistory.date <= date_1mo,
+        ).order_by(PriceHistory.date.desc()).first()
+
+        reasons = []
+        if row_1yr:
+            pct_1yr = (txn_price / float(row_1yr[0]) - 1) * 100
+            if pct_1yr <= -50:
+                reasons.append(f"down {abs(pct_1yr):.0f}% vs. 1 year ago")
+        if row_1mo:
+            pct_1mo = (txn_price / float(row_1mo[0]) - 1) * 100
+            if pct_1mo <= -20:
+                reasons.append(f"down {abs(pct_1mo):.0f}% vs. 1 month ago")
+
+        if not reasons:
+            continue
+
+        flags.append(Flag(
+            ticker=f.ticker,
+            insider_name=f.insider_name,
+            accession_no=f.accession_no,
+            flag_type=FlagType.DIP_BUY,
+            severity="HIGH",
+            description=(
+                f"{f.insider_name} bought {f.shares:,.0f} shares of {f.ticker} "
+                f"at ${txn_price:.2f} on {f.transaction_date} while the stock was "
+                f"{' and '.join(reasons)}. Insiders buying into significant drawdowns "
+                f"have the highest historical forward returns."
+            ),
+        ))
+    return flags
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -223,6 +408,9 @@ def detect_and_save_flags(new_filing_ids: list[int], verbose: bool = True) -> in
             + _flag_cluster_buys(new_filings, session)
             + _flag_first_purchases(new_filings, session)
             + _flag_reversal_buys(new_filings, session)
+            + _flag_bull_reversals(new_filings, session)
+            + _flag_conviction_buys(new_filings, session)
+            + _flag_dip_buys(new_filings, session)
         )
 
         for flag in all_flags:
