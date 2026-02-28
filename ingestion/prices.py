@@ -8,6 +8,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 import yfinance as yf
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from config import COMPANIES
 from db.models import PriceHistory
@@ -87,12 +88,22 @@ def sync_prices(
                 price_val = row.iloc[0] if hasattr(row, "iloc") else float(row)
                 if pd.isna(price_val):
                     continue
-                obj = PriceHistory(
-                    ticker=ticker,
-                    date=dt.date() if hasattr(dt, "date") else dt,
-                    close=float(price_val),
+                # Use INSERT ... ON CONFLICT DO UPDATE so that:
+                # (a) duplicate dates (yfinance timezone quirks) don't raise,
+                # (b) revised split-adjusted prices are silently updated.
+                stmt = (
+                    pg_insert(PriceHistory.__table__)
+                    .values(
+                        ticker=ticker,
+                        date=dt.date() if hasattr(dt, "date") else dt,
+                        close=float(price_val),
+                    )
+                    .on_conflict_do_update(
+                        index_elements=["ticker", "date"],
+                        set_={"close": float(price_val)},
+                    )
                 )
-                session.merge(obj)
+                session.execute(stmt)
                 new_rows += 1
 
             session.commit()

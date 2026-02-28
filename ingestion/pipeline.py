@@ -61,17 +61,27 @@ def run_pipeline(
     Returns the IngestRun record.
     """
     init_db()
-    session = get_session()
-    run = IngestRun(run_at=datetime.utcnow(), status="running")
-    session.add(run)
-    session.commit()
 
     if companies is None:
         companies = COMPANIES
     if end_date is None:
         end_date = str(date.today())
-    if start_date is None:
-        start_date = _last_successful_run_date(session)
+
+    # Short-lived session: create the run record + determine start date,
+    # then close immediately.  Neon drops serverless SSL connections after
+    # several minutes of inactivity so we never hold a session across the
+    # full pipeline run.
+    _init = get_session()
+    try:
+        run = IngestRun(run_at=datetime.utcnow(), status="running")
+        _init.add(run)
+        _init.commit()
+        run_id    = run.id
+        run_start = run.run_at
+        if start_date is None:
+            start_date = _last_successful_run_date(_init)
+    finally:
+        _init.close()
 
     print(f"\n{'='*60}")
     print(f"CeoWatcher pipeline  {datetime.utcnow():%Y-%m-%d %H:%M} UTC")
@@ -80,21 +90,20 @@ def run_pipeline(
 
     # Seed companies table (idempotent — skips existing rows)
     from db.models import Company
-    from db.session import get_session as _gs
     from ingestion.fetchers import _resolve_company
-    _s = _gs()
+    _seed = get_session()
     try:
         for ticker, display_name in companies:
-            if not _s.get(Company, ticker):
+            if not _seed.get(Company, ticker):
                 ec = _resolve_company(ticker, verbose=False)
-                _s.merge(Company(
+                _seed.merge(Company(
                     ticker=ticker,
                     name=ec.name if ec else display_name,
                     cik=str(ec.cik) if ec else None,
                 ))
-        _s.commit()
+        _seed.commit()
     finally:
-        _s.close()
+        _seed.close()
 
     errors = []
     new_s16 = new_stakes = analytics_count = flags_count = 0
@@ -140,13 +149,15 @@ def run_pipeline(
     # ── 4. Flags ──────────────────────────────────────────────────────────
     try:
         print("\n[4/5] Detecting flags …")
-        # Get IDs of section16 rows inserted in this run
-        # (rows created_at >= run start)
-        new_ids = [
-            r.id for r in session.query(Section16Filing.id)
-            .filter(Section16Filing.created_at >= run.run_at)
-            .all()
-        ]
+        _flag_s = get_session()
+        try:
+            new_ids = [
+                r.id for r in _flag_s.query(Section16Filing.id)
+                .filter(Section16Filing.created_at >= run_start)
+                .all()
+            ]
+        finally:
+            _flag_s.close()
         if new_ids:
             flags_count = detect_and_save_flags(new_ids, verbose=verbose)
         else:
@@ -164,19 +175,27 @@ def run_pipeline(
         errors.append(f"analytics: {exc}")
         print(f"  ERROR in analytics refresh: {exc}")
 
-    # ── Finalise run log ──────────────────────────────────────────────────
-    run.companies_processed  = len(companies)
-    run.new_section16_rows   = new_s16
-    run.new_stakes_rows      = new_stakes
-    run.analytics_refreshed  = analytics_count
-    run.flags_raised         = flags_count
-    run.status               = "partial" if errors else "success"
-    run.errors               = "\n".join(errors) if errors else None
-    session.commit()
-    session.close()
+    # ── Finalise run log (fresh session — original may have timed out) ────
+    _log = get_session()
+    try:
+        run_rec = _log.get(IngestRun, run_id)
+        run_rec.companies_processed  = len(companies)
+        run_rec.new_section16_rows   = new_s16
+        run_rec.new_stakes_rows      = new_stakes
+        run_rec.analytics_refreshed  = analytics_count
+        run_rec.flags_raised         = flags_count
+        run_rec.status               = "partial" if errors else "success"
+        run_rec.errors               = "\n".join(errors) if errors else None
+        _log.commit()
+    except Exception as exc:
+        _log.rollback()
+        print(f"  WARN: could not update run log: {exc}")
+    finally:
+        _log.close()
 
+    final_status = "partial" if errors else "success"
     print(f"\n{'='*60}")
-    print(f"Pipeline complete — status: {run.status}")
+    print(f"Pipeline complete — status: {final_status}")
     print(f"  Section 16 new rows : {new_s16}")
     print(f"  Stakes new rows     : {new_stakes}")
     print(f"  Analytics updated   : {analytics_count}")
@@ -185,9 +204,10 @@ def run_pipeline(
         print(f"  ERRORS: {'; '.join(errors)}")
     print(f"{'='*60}\n")
 
-    return run
+    return run_rec if "run_rec" in dir() else None
 
 
 if __name__ == "__main__":
-    run = run_pipeline()
-    sys.exit(0 if run.status in ("success", "partial") else 1)
+    result = run_pipeline()
+    status = getattr(result, "status", "partial") if result else "partial"
+    sys.exit(0 if status in ("success", "partial") else 1)
