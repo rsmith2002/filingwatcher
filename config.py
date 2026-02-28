@@ -522,7 +522,7 @@ COMPANIES: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 # Historical backfill
 # ---------------------------------------------------------------------------
-BACKFILL_START: str = "2015-01-01"   # 10 years of Form 4 history
+BACKFILL_START: str = "2020-01-01"   # 10 years of Form 4 history
 
 # ---------------------------------------------------------------------------
 # Return-window definitions  (label → days)
