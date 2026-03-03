@@ -125,11 +125,41 @@ def _add_flags_occurred_at():
             print(f"  Migration note (flags.occurred_at): {exc}")
 
 
+def _backfill_flags_occurred_at():
+    """
+    One-time backfill: populate flags.occurred_at from section16_filings for
+    any flag row where occurred_at is still NULL.  Uses the earliest
+    transaction_date for the matching accession_no.
+    Safe to run repeatedly — only touches NULL rows.
+    """
+    from sqlalchemy import text
+    engine = get_engine()
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("""
+                UPDATE flags f
+                SET occurred_at = sf.min_txn_date
+                FROM (
+                    SELECT accession_no, MIN(transaction_date) AS min_txn_date
+                    FROM section16_filings
+                    WHERE transaction_date IS NOT NULL
+                    GROUP BY accession_no
+                ) sf
+                WHERE f.accession_no = sf.accession_no
+                  AND f.occurred_at IS NULL
+            """))
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            print(f"  Migration note (backfill flags.occurred_at): {exc}")
+
+
 def init_db():
     """Create all tables if they don't exist. Safe to call repeatedly."""
     engine = get_engine()
     _drop_accession_unique_constraints()
     _widen_varchar_columns()
     _add_flags_occurred_at()
+    _backfill_flags_occurred_at()
     Base.metadata.create_all(engine)
     print("Database tables verified / created.")

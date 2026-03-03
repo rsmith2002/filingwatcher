@@ -587,60 +587,71 @@ def register_callbacks(app):
                                  style={"fontFamily": "'JetBrains Mono', monospace", "fontSize": "12px"})
             return [err_card], *empty_figs, []
 
-        stats  = data.get("stats", {})
-        params = data.get("params", {})
+        try:
+            stats  = data.get("stats", {})
+            params = data.get("params", {})
 
-        # Rebuild series
-        equity_series = pd.Series(
-            {pd.to_datetime(k).date(): v for k, v in data["equity"].items()}
-        ).sort_index()
-        spy_series = pd.Series(
-            {pd.to_datetime(k).date(): v for k, v in data["spy"].items()}
-        ).sort_index() if data.get("spy") else pd.Series(dtype=float)
-        trades_df = pd.DataFrame(data.get("trades", []))
+            # Rebuild series
+            equity_series = pd.Series(
+                {pd.to_datetime(k).date(): v for k, v in data["equity"].items()}
+            ).sort_index()
+            spy_series = pd.Series(
+                {pd.to_datetime(k).date(): v for k, v in data["spy"].items()}
+            ).sort_index() if data.get("spy") else pd.Series(dtype=float)
+            trades_df = pd.DataFrame(data.get("trades", []))
 
-        starting_capital = params.get("starting_capital", 100_000)
+            starting_capital = params.get("starting_capital", 100_000)
 
-        # ── Stat cards ────────────────────────────────────────────────────
-        def _fmt(v, suffix="", prefix=""):
-            if v is None:
-                return "—"
-            return f"{prefix}{v:+.2f}{suffix}" if isinstance(v, float) else f"{prefix}{v}{suffix}"
+            # ── Stat cards ────────────────────────────────────────────────
+            def _fmt(v, suffix="", prefix=""):
+                if v is None:
+                    return "—"
+                return f"{prefix}{v:+.2f}{suffix}" if isinstance(v, float) else f"{prefix}{v}{suffix}"
 
-        def _pnl_accent(v):
-            if v is None:
-                return ""
-            return "buy" if v >= 0 else "sell"
+            def _pnl_accent(v):
+                if v is None:
+                    return ""
+                return "buy" if v >= 0 else "sell"
 
-        cards_data = [
-            (_fmt(stats.get("total_return_pct"), "%"),   "Total Return",    _pnl_accent(stats.get("total_return_pct"))),
-            (_fmt(stats.get("cagr_pct"), "%"),            "CAGR",            _pnl_accent(stats.get("cagr_pct"))),
-            (_fmt(stats.get("sharpe"), ""),               "Sharpe",          _pnl_accent(stats.get("sharpe"))),
-            (_fmt(stats.get("sortino"), ""),              "Sortino",         _pnl_accent(stats.get("sortino"))),
-            (_fmt(stats.get("max_drawdown_pct"), "%"),    "Max Drawdown",    "sell"),
-            (_fmt(stats.get("calmar"), ""),               "Calmar",          _pnl_accent(stats.get("calmar"))),
-            (_fmt(stats.get("win_rate_pct"), "%"),        "Win Rate",        _pnl_accent(stats.get("win_rate_pct"), )),
-            (_fmt(stats.get("profit_factor"), "×"),       "Profit Factor",   _pnl_accent(stats.get("profit_factor"))),
-            (_fmt(stats.get("alpha_pct"), "%/yr") if stats.get("alpha_pct") is not None else "—",
-                                                          "Alpha",           _pnl_accent(stats.get("alpha_pct"))),
-            (_fmt(stats.get("beta"), ""),                 "Beta",            ""),
-            (_fmt(stats.get("excess_return_pct"), "%"),   "vs SPY",          _pnl_accent(stats.get("excess_return_pct"))),
-            (str(stats.get("total_trades", 0)),           "Trades",          ""),
-            (_fmt(stats.get("avg_trade_return_pct"), "%"), "Avg Trade",      _pnl_accent(stats.get("avg_trade_return_pct"))),
-            (_fmt(stats.get("avg_holding_days"), "d"),    "Avg Hold",        ""),
-            (f"${stats.get('final_value', 0):,.0f}" if stats.get('final_value') else "—",
-                                                          "Final Value",     _pnl_accent(stats.get("total_return_pct"))),
-            (_fmt(stats.get("spy_cagr_pct"), "%"),        "SPY CAGR",        _pnl_accent(stats.get("spy_cagr_pct"))),
-        ]
+            cards_data = [
+                (_fmt(stats.get("total_return_pct"), "%"),   "Total Return",    _pnl_accent(stats.get("total_return_pct"))),
+                (_fmt(stats.get("cagr_pct"), "%"),            "CAGR",            _pnl_accent(stats.get("cagr_pct"))),
+                (_fmt(stats.get("sharpe"), ""),               "Sharpe",          _pnl_accent(stats.get("sharpe"))),
+                (_fmt(stats.get("sortino"), ""),              "Sortino",         _pnl_accent(stats.get("sortino"))),
+                (_fmt(stats.get("max_drawdown_pct"), "%"),    "Max Drawdown",    "sell"),
+                (_fmt(stats.get("calmar"), ""),               "Calmar",          _pnl_accent(stats.get("calmar"))),
+                (_fmt(stats.get("win_rate_pct"), "%"),        "Win Rate",        _pnl_accent(stats.get("win_rate_pct"))),
+                (_fmt(stats.get("profit_factor"), "×"),       "Profit Factor",   _pnl_accent(stats.get("profit_factor"))),
+                (_fmt(stats.get("alpha_pct"), "%/yr") if stats.get("alpha_pct") is not None else "—",
+                                                              "Alpha",           _pnl_accent(stats.get("alpha_pct"))),
+                (_fmt(stats.get("beta"), ""),                 "Beta",            ""),
+                (_fmt(stats.get("excess_return_pct"), "%"),   "vs SPY",          _pnl_accent(stats.get("excess_return_pct"))),
+                (str(stats.get("total_trades", 0)),           "Trades",          ""),
+                (_fmt(stats.get("avg_trade_return_pct"), "%"), "Avg Trade",      _pnl_accent(stats.get("avg_trade_return_pct"))),
+                (_fmt(stats.get("avg_holding_days"), "d"),    "Avg Hold",        ""),
+                (f"${stats.get('final_value', 0):,.0f}" if stats.get("final_value") else "—",
+                                                              "Final Value",     _pnl_accent(stats.get("total_return_pct"))),
+                (_fmt(stats.get("spy_cagr_pct"), "%"),        "SPY CAGR",        _pnl_accent(stats.get("spy_cagr_pct"))),
+            ]
 
-        stat_cards = [_stat_card(val, lbl, acc) for val, lbl, acc in cards_data]
+            stat_cards = [_stat_card(val, lbl, acc) for val, lbl, acc in cards_data]
 
-        # ── Charts ────────────────────────────────────────────────────────
-        eq_fig   = equity_curve_fig(equity_series, spy_series, starting_capital)
-        heat_fig = monthly_heatmap_fig(equity_series)
-        hist_fig = trade_histogram_fig(trades_df)
-        scat_fig = trade_scatter_fig(trades_df)
+            # ── Charts ────────────────────────────────────────────────────
+            eq_fig   = equity_curve_fig(equity_series, spy_series, starting_capital)
+            heat_fig = monthly_heatmap_fig(equity_series)
+            hist_fig = trade_histogram_fig(trades_df)
+            scat_fig = trade_scatter_fig(trades_df)
 
-        trade_records = trades_df.to_dict("records") if not trades_df.empty else []
+            trade_records = trades_df.to_dict("records") if not trades_df.empty else []
 
-        return stat_cards, eq_fig, heat_fig, hist_fig, scat_fig, trade_records
+            return stat_cards, eq_fig, heat_fig, hist_fig, scat_fig, trade_records
+
+        except Exception as _exc:
+            import traceback as _tb
+            err_card = dbc.Alert(
+                [html.Strong("Display error: "),
+                 html.Code(_tb.format_exc(), style={"whiteSpace": "pre-wrap", "fontSize": "10px"})],
+                color="danger",
+                style={"fontFamily": "'JetBrains Mono', monospace", "fontSize": "11px"},
+            )
+            return [err_card], *empty_figs, []
