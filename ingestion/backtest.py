@@ -159,7 +159,7 @@ def _build_price_index(prices_df: pd.DataFrame) -> dict[str, dict[date, float]]:
     """Build {ticker: {date: close}} for O(1) lookups."""
     idx: dict[str, dict[date, float]] = {}
     for ticker, grp in prices_df.groupby("ticker"):
-        idx[ticker] = {row.date().date() if hasattr(row, "date") else row: close
+        idx[ticker] = {row.date() if hasattr(row, "date") else row: close
                        for row, close in zip(grp["date"], grp["close"])}
     return idx
 
