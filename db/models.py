@@ -209,6 +209,20 @@ class Flag(Base):
 
 
 # ---------------------------------------------------------------------------
+# backtest_cache  — serialised results from scripts/run_backtest.py
+# ---------------------------------------------------------------------------
+class BacktestCache(Base):
+    __tablename__ = "backtest_cache"
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    computed_at  = Column(DateTime, default=datetime.utcnow)
+    params_json  = Column(Text)   # JSON: capital, base_pct, max_hold, etc.
+    results_json = Column(Text)   # JSON: trades_df, equity_series, stats
+    status       = Column(String(20))   # "ok" / "error"
+    error_msg    = Column(Text)
+
+
+# ---------------------------------------------------------------------------
 # ingest_runs  — audit log for the pipeline
 # ---------------------------------------------------------------------------
 class IngestRun(Base):

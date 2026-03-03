@@ -324,7 +324,20 @@ def _tab_backtesting() -> dcc.Tab:
     return dcc.Tab(label="📊 Backtest", value="tab-backtesting",
                    className="custom-tab", selected_className="custom-tab-selected",
         children=[
-            # ── Config row ────────────────────────────────────────────────
+            # ── Info banner ───────────────────────────────────────────────
+            dbc.Alert([
+                html.Strong("Offline mode: "),
+                "Run ",
+                html.Code("python scripts/run_backtest.py", style={"fontSize": "11px"}),
+                " locally to compute results, then click ",
+                html.Strong("Load Latest Results"),
+                " to display them here.",
+            ], color="secondary", className="mt-3 mb-2 py-2",
+               style={"fontSize": "12px", "fontFamily": "'JetBrains Mono', monospace",
+                      "backgroundColor": "#0d0e1b", "borderColor": "#2a2a4a",
+                      "color": "#8a9ab0"}),
+
+            # ── Config row (shows params of last cached run) ───────────────
             dbc.Row([
                 _cfg("Capital ($)",       "bt-capital",    100000, 1000),
                 _cfg("Base % / unit",     "bt-base-pct",   5,      0.5),
@@ -334,12 +347,19 @@ def _tab_backtesting() -> dcc.Tab:
                 _cfg("Risk-free rate (%)", "bt-rfr",       5,      0.25),
                 dbc.Col([
                     html.Label("\u00a0", style=_label_style),
-                    dbc.Button("▶  Run Backtest", id="btn-run-backtest",
-                               color="warning", size="sm",
+                    dbc.Button("⟳  Load Latest Results", id="btn-run-backtest",
+                               color="info", size="sm",
                                style={"fontFamily": "'JetBrains Mono', monospace",
                                       "fontSize": "12px", "fontWeight": "600"}),
                 ], width="auto", className="align-self-end pb-1"),
-            ], className="mt-3 mb-3 align-items-end"),
+                dbc.Col([
+                    html.Label("\u00a0", style=_label_style),
+                    html.Div(id="bt-last-computed",
+                             style={"fontSize": "10px", "color": "#5a6370",
+                                    "fontFamily": "'JetBrains Mono', monospace",
+                                    "paddingBottom": "6px"}),
+                ], width="auto", className="align-self-end pb-1"),
+            ], className="mb-3 align-items-end"),
 
             # ── KPI stat cards ────────────────────────────────────────────
             html.Div(id="bt-stat-cards",

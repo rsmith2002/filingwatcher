@@ -517,58 +517,38 @@ def register_callbacks(app):
 
     @app.callback(
         Output("store-backtest-results", "data"),
+        Output("bt-last-computed", "children"),
         Input("btn-run-backtest", "n_clicks"),
-        State("bt-capital",   "value"),
-        State("bt-base-pct",  "value"),
-        State("bt-max-hold",  "value"),
-        State("bt-stop-loss", "value"),
-        State("bt-slippage",  "value"),
-        State("bt-rfr",       "value"),
         prevent_initial_call=True,
     )
-    def run_backtest_callback(n_clicks, capital, base_pct, max_hold, stop_loss, slippage, rfr):
-        """Execute the backtest engine and store results as JSON."""
-        from ingestion.backtest import run_backtest
+    def load_backtest_callback(n_clicks):
+        """Load cached backtest results from the database."""
+        from db.models import BacktestCache
+        session = get_session()
         try:
-            result = run_backtest(
-                starting_capital  = float(capital  or 100_000),
-                base_pct          = float(base_pct or 5) / 100,
-                max_holding_days  = int(max_hold   or 90),
-                stop_loss_pct     = float(stop_loss or 10) / 100,
-                slippage_pct      = float(slippage  or 0.10) / 100,
-                risk_free_rate    = float(rfr        or 5) / 100,
+            cache = (
+                session.query(BacktestCache)
+                .order_by(BacktestCache.computed_at.desc())
+                .first()
             )
-        except Exception as exc:
-            import traceback
-            traceback.print_exc()
-            return json.dumps({"error": str(exc)})
+        finally:
+            session.close()
 
-        if result is None:
-            return json.dumps({"error": "No flag data found. Run backfill_flags.py first."})
+        if cache is None:
+            return (
+                json.dumps({"error": "No cached results found. Run:  python scripts/run_backtest.py"}),
+                "No cache found",
+            )
 
-        # Serialise to JSON (dates → strings)
-        equity = {str(k): v for k, v in result.equity_series.items()}
-        spy    = {str(k): v for k, v in result.spy_series.items()} if not result.spy_series.empty else {}
-        trades = result.trades_df.copy()
-        for col in ("entry_date", "exit_date"):
-            if col in trades.columns:
-                trades[col] = trades[col].astype(str)
-        trades_records = trades.to_dict("records") if not trades.empty else []
+        if cache.status == "error":
+            ts = cache.computed_at.strftime("%Y-%m-%d %H:%M UTC") if cache.computed_at else "?"
+            return (
+                json.dumps({"error": f"Last run failed ({ts}): {cache.error_msg}"}),
+                f"Error — {ts}",
+            )
 
-        # Clean stats (best/worst trade dicts may have date objects)
-        stats = result.stats.copy()
-        for key in ("best_trade", "worst_trade"):
-            if key in stats and isinstance(stats[key], dict):
-                stats[key] = {k: str(v) if hasattr(v, "isoformat") else v
-                              for k, v in stats[key].items()}
-
-        return json.dumps({
-            "equity":  equity,
-            "spy":     spy,
-            "trades":  trades_records,
-            "stats":   stats,
-            "params":  result.params,
-        })
+        ts = cache.computed_at.strftime("%Y-%m-%d %H:%M UTC") if cache.computed_at else "unknown"
+        return cache.results_json, f"Last computed: {ts}"
 
     @app.callback(
         Output("bt-stat-cards",     "children"),
