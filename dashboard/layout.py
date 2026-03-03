@@ -299,6 +299,132 @@ def _tab_flags() -> dcc.Tab:
     )
 
 
+def _tab_backtesting() -> dcc.Tab:
+    _input_style = {
+        "backgroundColor": "#0d0e1b", "border": "1px solid #1c1e30",
+        "borderRadius": "4px", "color": "#c6bead",
+        "fontFamily": "'JetBrains Mono', monospace", "fontSize": "12px",
+        "padding": "6px 10px", "width": "100%",
+    }
+    _label_style = {
+        "color": "#f0a31a", "fontSize": "9px",
+        "fontFamily": "'JetBrains Mono', monospace",
+        "textTransform": "uppercase", "letterSpacing": "0.12em",
+        "display": "block", "marginBottom": "4px",
+    }
+
+    def _cfg(label, id_, default, step=None):
+        return dbc.Col([
+            html.Label(label, style=_label_style),
+            dcc.Input(id=id_, type="number", value=default,
+                      step=step or 1, style=_input_style,
+                      debounce=True),
+        ], width="auto", className="pe-3")
+
+    return dcc.Tab(label="📊 Backtest", value="tab-backtesting",
+                   className="custom-tab", selected_className="custom-tab-selected",
+        children=[
+            # ── Config row ────────────────────────────────────────────────
+            dbc.Row([
+                _cfg("Capital ($)",       "bt-capital",    100000, 1000),
+                _cfg("Base % / unit",     "bt-base-pct",   5,      0.5),
+                _cfg("Max hold (days)",   "bt-max-hold",   90,     1),
+                _cfg("Stop loss (%)",     "bt-stop-loss",  10,     0.5),
+                _cfg("Slippage (%)",      "bt-slippage",   0.10,   0.01),
+                _cfg("Risk-free rate (%)", "bt-rfr",       5,      0.25),
+                dbc.Col([
+                    html.Label("\u00a0", style=_label_style),
+                    dbc.Button("▶  Run Backtest", id="btn-run-backtest",
+                               color="warning", size="sm",
+                               style={"fontFamily": "'JetBrains Mono', monospace",
+                                      "fontSize": "12px", "fontWeight": "600"}),
+                ], width="auto", className="align-self-end pb-1"),
+            ], className="mt-3 mb-3 align-items-end"),
+
+            # ── KPI stat cards ────────────────────────────────────────────
+            html.Div(id="bt-stat-cards",
+                     className="d-flex flex-wrap gap-2 mb-3",
+                     style={"minHeight": "60px"}),
+
+            # ── Equity curve ──────────────────────────────────────────────
+            dcc.Loading(
+                dcc.Graph(id="bt-chart-equity",
+                          config={"displayModeBar": True},
+                          style={"minHeight": "480px"}),
+                color=THEME["award_col"],
+            ),
+
+            # ── Monthly heatmap + Histogram ───────────────────────────────
+            dbc.Row([
+                dbc.Col(dcc.Graph(id="bt-chart-heatmap",
+                                  config={"displayModeBar": False}),
+                        width=6),
+                dbc.Col(dcc.Graph(id="bt-chart-histogram",
+                                  config={"displayModeBar": False}),
+                        width=6),
+            ], className="mt-2"),
+
+            # ── Trades scatter ────────────────────────────────────────────
+            dcc.Graph(id="bt-chart-scatter",
+                      config={"displayModeBar": False},
+                      className="mt-2"),
+
+            # ── Trade log grid ────────────────────────────────────────────
+            html.Div([
+                html.Div("Trade Log", style={
+                    "fontSize": "10px", "color": "#f0a31a",
+                    "fontFamily": "'JetBrains Mono', monospace",
+                    "fontWeight": "600", "letterSpacing": "0.14em",
+                    "textTransform": "uppercase", "marginBottom": "8px",
+                }),
+                dag.AgGrid(
+                    id="grid-trades",
+                    columnDefs=[
+                        {"field": "ticker",       "headerName": "Ticker",     "width": 80,  "pinned": "left"},
+                        {"field": "insider_name", "headerName": "Insider",    "width": 200},
+                        {"field": "flag_type",    "headerName": "Flag",       "width": 150},
+                        {"field": "severity",     "headerName": "Sev",        "width": 70},
+                        {"field": "entry_date",   "headerName": "Entry",      "width": 100},
+                        {"field": "exit_date",    "headerName": "Exit",       "width": 100},
+                        {"field": "holding_days", "headerName": "Days",       "width": 65},
+                        {"field": "exit_reason",  "headerName": "Exit Reason","width": 140},
+                        {"field": "entry_price",  "headerName": "Entry $",    "width": 90,
+                         "valueFormatter": {"function": "params.value != null ? '$' + params.value.toFixed(2) : '—'"}},
+                        {"field": "exit_price",   "headerName": "Exit $",     "width": 90,
+                         "valueFormatter": {"function": "params.value != null ? '$' + params.value.toFixed(2) : '—'"}},
+                        {"field": "return_pct",   "headerName": "Return %",   "width": 95,
+                         "valueFormatter": {"function": "params.value != null ? (params.value >= 0 ? '+' : '') + params.value.toFixed(1) + '%' : '—'"},
+                         "cellStyle": {"function": "params.value != null ? (params.value >= 0 ? {'color':'#17d890','fontWeight':'600'} : {'color':'#ff3d5a','fontWeight':'600'}) : {}"}},
+                        {"field": "return_usd",   "headerName": "Return $",   "width": 100,
+                         "valueFormatter": {"function": "params.value != null ? (params.value >= 0 ? '+$' : '-$') + Math.abs(params.value).toLocaleString('en-US', {maximumFractionDigits:0}) : '—'"}},
+                        {"field": "position_usd", "headerName": "Position $", "width": 105,
+                         "valueFormatter": {"function": "params.value != null ? '$' + params.value.toLocaleString('en-US', {maximumFractionDigits:0}) : '—'"}},
+                    ],
+                    rowData=[],
+                    defaultColDef={
+                        "resizable": True, "sortable": True, "filter": True,
+                        "cellStyle": {"fontFamily": "'JetBrains Mono', monospace", "fontSize": "11px"},
+                    },
+                    dashGridOptions={
+                        "animateRows": True,
+                        "pagination": True,
+                        "paginationPageSize": 50,
+                    },
+                    style={"height": "520px"},
+                    className="ag-theme-alpine-dark",
+                ),
+            ], className="mt-3 mb-4"),
+
+            # Hidden store for backtest results
+            dcc.Store(id="store-backtest-results", data=None),
+        ]
+    )
+
+
+# Pull THEME import for the loading spinner colour
+from dashboard.components.charts import THEME  # noqa: E402
+
+
 # ---------------------------------------------------------------------------
 # Root layout
 # ---------------------------------------------------------------------------
@@ -329,6 +455,7 @@ def build_layout() -> html.Div:
                         _tab_charts(),
                         _tab_flags(),
                         _tab_insider(),
+                        _tab_backtesting(),
                     ],
                     className="custom-tabs",
                 ),

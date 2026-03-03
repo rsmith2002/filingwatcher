@@ -1,0 +1,34 @@
+name: Backfill Historical Flags
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'Filings per batch (default: 500)'
+        default: '500'
+        required: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run flag backfill
+        env:
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          EDGAR_IDENTITY: ${{ secrets.EDGAR_IDENTITY }}
+          PYTHONPATH:     .
+        run: |
+          BATCH="${{ github.event.inputs.batch_size }}"
+          python scripts/backfill_flags.py --batch-size "${BATCH:-500}"

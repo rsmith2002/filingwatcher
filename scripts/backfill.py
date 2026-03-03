@@ -22,9 +22,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import BACKFILL_START, COMPANIES
-from db.session import init_db
+from db.models import Section16Filing
+from db.session import get_session, init_db
 from ingestion.analytics import refresh_all_analytics
 from ingestion.fetchers import upsert_large_holder_stakes, upsert_section16
+from ingestion.flags import detect_and_save_flags
 from ingestion.prices import sync_prices
 
 
@@ -125,9 +127,28 @@ def run_backfill(
         print(f"  ERROR in stakes fetch: {exc}")
 
     # ── Analytics ─────────────────────────────────────────────────────────
-    print("\n[4/4] Computing analytics for all insiders …")
+    print("\n[4/5] Computing analytics for all insiders …")
     n_analytics = refresh_all_analytics(verbose=verbose)
     print(f"  Analytics records: {n_analytics:,}")
+
+    # ── Flags ─────────────────────────────────────────────────────────────
+    print("\n[5/5] Detecting flags over all historical filings …")
+    _fs = get_session()
+    try:
+        all_ids = [row[0] for row in _fs.query(Section16Filing.id)
+                   .order_by(Section16Filing.transaction_date, Section16Filing.id).all()]
+    finally:
+        _fs.close()
+
+    total_flags = 0
+    BATCH = 500
+    for i in range(0, len(all_ids), BATCH):
+        batch = all_ids[i : i + BATCH]
+        try:
+            total_flags += detect_and_save_flags(batch, verbose=False)
+        except Exception as exc:
+            print(f"  WARN flag batch {i}: {exc}")
+    print(f"  Flags created: {total_flags:,}")
 
     print(f"\n{'='*60}")
     print("Backfill complete.")
