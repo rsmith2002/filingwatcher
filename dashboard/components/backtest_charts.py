@@ -162,9 +162,8 @@ def monthly_heatmap_fig(equity_series: pd.Series) -> go.Figure:
         zmax=abs_max,
         showscale=True,
         colorbar=dict(
-            title="Return %",
+            title=dict(text="Return %", font=dict(size=9, family=_MONO, color=THEME["text"])),
             tickfont=dict(size=9, family=_MONO, color=THEME["text"]),
-            titlefont=dict(size=9, family=_MONO, color=THEME["text"]),
             bgcolor=THEME["paper"],
             bordercolor=THEME["grid"],
         ),
