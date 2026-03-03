@@ -170,14 +170,14 @@ def monthly_heatmap_fig(equity_series: pd.Series) -> go.Figure:
         hovertemplate="<b>%{y} %{x}</b><br>Return: %{text}<extra></extra>",
     ))
 
-    fig.update_layout(
+    fig.update_layout(**{
         **_LAYOUT_BASE,
-        height=max(200, 40 * len(years) + 80),
-        title=dict(text="Monthly Returns", font=dict(size=14, color=THEME["text"])),
-        xaxis=dict(**_LAYOUT_BASE["xaxis"], side="top"),
-        yaxis=dict(**_LAYOUT_BASE["yaxis"], autorange="reversed"),
-        margin=dict(l=55, r=80, t=70, b=20),
-    )
+        "height": max(200, 40 * len(years) + 80),
+        "title": dict(text="Monthly Returns", font=dict(size=14, color=THEME["text"])),
+        "xaxis": dict(**_LAYOUT_BASE["xaxis"], side="top"),
+        "yaxis": dict(**_LAYOUT_BASE["yaxis"], autorange="reversed"),
+        "margin": dict(l=55, r=80, t=70, b=20),
+    })
     return fig
 
 
@@ -215,15 +215,15 @@ def trade_histogram_fig(trades_df: pd.DataFrame) -> go.Figure:
 
     fig.add_vline(x=0, line_color=THEME["grid"], line_width=1)
 
-    fig.update_layout(
+    fig.update_layout(**{
         **_LAYOUT_BASE,
-        height=300,
-        title=dict(text="Trade Returns Distribution", font=dict(size=14, color=THEME["text"])),
-        xaxis=dict(**_LAYOUT_BASE["xaxis"], title="Return (%)", ticksuffix="%"),
-        yaxis=dict(**_LAYOUT_BASE["yaxis"], title="# Trades"),
-        bargap=0.05,
-        showlegend=False,
-    )
+        "height": 300,
+        "title": dict(text="Trade Returns Distribution", font=dict(size=14, color=THEME["text"])),
+        "xaxis": dict(**_LAYOUT_BASE["xaxis"], title="Return (%)", ticksuffix="%"),
+        "yaxis": dict(**_LAYOUT_BASE["yaxis"], title="# Trades"),
+        "bargap": 0.05,
+        "showlegend": False,
+    })
     return fig
 
 
@@ -276,12 +276,12 @@ def trade_scatter_fig(trades_df: pd.DataFrame) -> go.Figure:
 
     fig.add_hline(y=0, line_color=THEME["grid"], line_width=1)
 
-    fig.update_layout(
+    fig.update_layout(**{
         **_LAYOUT_BASE,
-        height=340,
-        title=dict(text="Trades: Holding Period vs Return", font=dict(size=14, color=THEME["text"])),
-        xaxis=dict(**_LAYOUT_BASE["xaxis"], title="Holding period (days)"),
-        yaxis=dict(**_LAYOUT_BASE["yaxis"], title="Return (%)", ticksuffix="%"),
-        legend=dict(**_LAYOUT_BASE["legend"]),
-    )
+        "height": 340,
+        "title": dict(text="Trades: Holding Period vs Return", font=dict(size=14, color=THEME["text"])),
+        "xaxis": dict(**_LAYOUT_BASE["xaxis"], title="Holding period (days)"),
+        "yaxis": dict(**_LAYOUT_BASE["yaxis"], title="Return (%)", ticksuffix="%"),
+        "legend": dict(**_LAYOUT_BASE["legend"]),
+    })
     return fig
