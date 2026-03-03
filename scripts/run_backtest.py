@@ -87,12 +87,13 @@ def _serialise_result(result) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Run CeoWatcher backtest and cache results.")
-    parser.add_argument("--capital",    type=float, default=100_000, help="Starting capital (default: 100000)")
-    parser.add_argument("--base-pct",   type=float, default=0.05,    help="Base position pct (default: 0.05)")
-    parser.add_argument("--max-hold",   type=int,   default=90,      help="Max holding days (default: 90)")
-    parser.add_argument("--stop-loss",  type=float, default=0.10,    help="Stop-loss pct (default: 0.10)")
-    parser.add_argument("--slippage",   type=float, default=0.001,   help="Slippage pct (default: 0.001)")
-    parser.add_argument("--rfr",        type=float, default=0.05,    help="Risk-free rate (default: 0.05)")
+    parser.add_argument("--capital",    type=float, default=100_000,   help="Starting capital (default: 100000)")
+    parser.add_argument("--base-pct",   type=float, default=0.05,      help="Base position pct (default: 0.05)")
+    parser.add_argument("--max-hold",   type=int,   default=90,        help="Max holding days (default: 90)")
+    parser.add_argument("--stop-loss",  type=float, default=0.10,      help="Stop-loss pct (default: 0.10)")
+    parser.add_argument("--slippage",   type=float, default=0.001,     help="Slippage pct (default: 0.001)")
+    parser.add_argument("--rfr",        type=float, default=0.05,      help="Risk-free rate (default: 0.05)")
+    parser.add_argument("--start-date", type=str,   default="2021-01-01", help="Earliest flag filing date (default: 2021-01-01)")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -104,6 +105,7 @@ def main():
     print(f"  Stop loss:     {args.stop_loss*100:.1f}%")
     print(f"  Slippage:      {args.slippage*100:.2f}%")
     print(f"  Risk-free:     {args.rfr*100:.1f}%")
+    print(f"  Start date:    {args.start_date}")
     print()
 
     # Ensure DB schema is up to date (creates backtest_cache if missing)
@@ -115,6 +117,9 @@ def main():
 
     session = get_session()
     try:
+        from datetime import date as _date
+        sd = _date.fromisoformat(args.start_date)
+
         result = run_backtest(
             starting_capital=args.capital,
             base_pct=args.base_pct,
@@ -122,6 +127,7 @@ def main():
             stop_loss_pct=args.stop_loss,
             slippage_pct=args.slippage,
             risk_free_rate=args.rfr,
+            start_date=sd,
         )
 
         if result is None:

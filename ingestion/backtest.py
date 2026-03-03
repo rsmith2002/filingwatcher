@@ -50,9 +50,16 @@ class BacktestResult:
 # Data loading
 # ---------------------------------------------------------------------------
 
-def load_backtest_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_backtest_data(
+    start_date: date | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Load all data needed for backtesting.
+
+    Parameters
+    ----------
+    start_date : only load flags whose filing_date >= this date.
+                 Defaults to 2021-01-01.
 
     Returns
     -------
@@ -60,6 +67,9 @@ def load_backtest_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     sells_df  : all Code=S/D non-derivative filings (for exit signals)
     prices_df : full price_history for all flagged tickers
     """
+    if start_date is None:
+        start_date = date(2021, 1, 1)
+
     session = get_session()
     try:
         # ── 1. Flagged buys ───────────────────────────────────────────────
@@ -72,6 +82,7 @@ def load_backtest_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
                 Section16Filing.is_derivative == False,
                 Section16Filing.shares.isnot(None),
                 Section16Filing.filing_date.isnot(None),
+                Section16Filing.filing_date >= start_date,
             )
             .all()
         )
@@ -188,12 +199,13 @@ def run_backtest(
     stop_loss_pct: float = 0.10,
     slippage_pct: float = 0.001,
     risk_free_rate: float = 0.05,
+    start_date: date | None = None,
 ) -> BacktestResult | None:
     """
     Execute the portfolio simulation and return a BacktestResult.
     Returns None if there is insufficient data (no flags or no prices).
     """
-    flags_df, sells_df, prices_df = load_backtest_data()
+    flags_df, sells_df, prices_df = load_backtest_data(start_date=start_date)
 
     if flags_df.empty or prices_df.empty:
         return None
@@ -424,6 +436,7 @@ def run_backtest(
         starting_capital=starting_capital, base_pct=base_pct,
         max_holding_days=max_holding_days, stop_loss_pct=stop_loss_pct,
         slippage_pct=slippage_pct, risk_free_rate=risk_free_rate,
+        start_date=str(start_date or date(2021, 1, 1)),
     )
 
     return BacktestResult(
