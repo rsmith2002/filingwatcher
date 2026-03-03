@@ -142,6 +142,7 @@ LEADERBOARD_COLUMNS = [
 # ---------------------------------------------------------------------------
 
 FLAGS_COLUMNS = [
+    {"field": "occurred_at",  "headerName": "Trade Date",  "width": 108},
     {"field": "flagged_at",   "headerName": "Flagged",     "width": 140, "sort": "desc"},
     {"field": "severity",     "headerName": "Severity",    "width": 90,
      "cellStyle": {

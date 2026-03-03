@@ -418,8 +418,11 @@ def register_callbacks(app):
                             className="mb-1", style={"fontSize": "13px"}),
                     html.P(str(row.get("description", ""))[:160] + "…",
                            style={"fontSize": "11px", "color": "#aaa", "marginBottom": 0}),
-                    html.Small(str(row.get("flagged_at", ""))[:16],
-                               style={"color": "#666"}),
+                    html.Small(
+                        f"Trade: {str(row.get('occurred_at', ''))[:10]}  "
+                        f"Flagged: {str(row.get('flagged_at', ''))[:16]}",
+                        style={"color": "#666"},
+                    ),
                 ])
             ], style={"width": "340px", "backgroundColor": "#16213e",
                       "border": "1px solid #2a2a4a"})

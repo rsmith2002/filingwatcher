@@ -203,6 +203,7 @@ class Flag(Base):
     flag_type    = Column(String(100))        # e.g. "CLUSTER_BUY", "CEO_PURCHASE"
     severity     = Column(String(20))         # HIGH / MEDIUM / LOW
     description  = Column(Text)
+    occurred_at  = Column(Date, nullable=True)    # transaction_date of the triggering trade
     flagged_at   = Column(DateTime, default=datetime.utcnow)
     is_dismissed = Column(Boolean, default=False)
 

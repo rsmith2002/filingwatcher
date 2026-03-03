@@ -64,6 +64,7 @@ def _flag_ceo_cfo_purchases(new_filings: list, session) -> list[Flag]:
             insider_name=f.insider_name,
             accession_no=f.accession_no,
             flag_type=FlagType.CEO_CFO_PURCHASE,
+            occurred_at=f.transaction_date,
             severity="HIGH",
             description=(
                 f"{f.insider_name} ({f.officer_title}) bought {_fs(f.shares)} shares "
@@ -90,6 +91,7 @@ def _flag_large_purchases(new_filings: list, session) -> list[Flag]:
             insider_name=f.insider_name,
             accession_no=f.accession_no,
             flag_type=FlagType.LARGE_PURCHASE,
+            occurred_at=f.transaction_date,
             severity="HIGH" if f.value >= 2_000_000 else "MEDIUM",
             description=(
                 f"{f.insider_name} made an open-market purchase of "
@@ -129,6 +131,7 @@ def _flag_cluster_buys(new_filings: list, session) -> list[Flag]:
                     insider_name=names,
                     accession_no=cluster_accno,
                     flag_type=FlagType.CLUSTER_BUY,
+                    occurred_at=anchor.transaction_date,
                     severity="HIGH",
                     description=(
                         f"{len(insiders_in_cluster)} insiders bought {ticker} "
@@ -163,6 +166,7 @@ def _flag_first_purchases(new_filings: list, session) -> list[Flag]:
             insider_name=f.insider_name,
             accession_no=f.accession_no,
             flag_type=FlagType.FIRST_PURCHASE,
+            occurred_at=f.transaction_date,
             severity="MEDIUM",
             description=(
                 f"{f.insider_name} ({f.officer_title or 'Insider'}) made their first "
@@ -198,6 +202,7 @@ def _flag_reversal_buys(new_filings: list, session) -> list[Flag]:
                 insider_name=f.insider_name,
                 accession_no=f.accession_no,
                 flag_type=FlagType.REVERSAL_BUY,
+                occurred_at=f.transaction_date,
                 severity="MEDIUM",
                 description=(
                     f"{f.insider_name} had been selling {f.ticker} in the last 90 days "
@@ -274,6 +279,7 @@ def _flag_bull_reversals(new_filings: list, session) -> list[Flag]:
             insider_name=f.insider_name,
             accession_no=f.accession_no,
             flag_type=FlagType.BULL_REVERSAL,
+            occurred_at=f.transaction_date,
             severity="HIGH",
             description=desc,
         ))
@@ -307,6 +313,7 @@ def _flag_conviction_buys(new_filings: list, session) -> list[Flag]:
             insider_name=f.insider_name,
             accession_no=f.accession_no,
             flag_type=FlagType.CONVICTION_BUY,
+            occurred_at=f.transaction_date,
             severity=severity,
             description=(
                 f"{f.insider_name} increased their {f.ticker} position by "
@@ -379,6 +386,7 @@ def _flag_dip_buys(new_filings: list, session) -> list[Flag]:
             insider_name=f.insider_name,
             accession_no=f.accession_no,
             flag_type=FlagType.DIP_BUY,
+            occurred_at=f.transaction_date,
             severity="HIGH",
             description=(
                 f"{f.insider_name} bought {_fs(f.shares)} shares of {f.ticker} "

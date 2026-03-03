@@ -107,10 +107,29 @@ def _widen_varchar_columns():
                 print(f"  Migration FAILED ({table}.{col}): {exc}")
 
 
+def _add_flags_occurred_at():
+    """
+    Add flags.occurred_at (DATE) if the column doesn't exist yet.
+    Safe to run repeatedly — IF NOT EXISTS prevents errors.
+    """
+    from sqlalchemy import text
+    engine = get_engine()
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "ALTER TABLE flags ADD COLUMN IF NOT EXISTS occurred_at DATE"
+            ))
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            print(f"  Migration note (flags.occurred_at): {exc}")
+
+
 def init_db():
     """Create all tables if they don't exist. Safe to call repeatedly."""
     engine = get_engine()
     _drop_accession_unique_constraints()
     _widen_varchar_columns()
+    _add_flags_occurred_at()
     Base.metadata.create_all(engine)
     print("Database tables verified / created.")
