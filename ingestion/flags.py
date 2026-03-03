@@ -28,6 +28,16 @@ class FlagType:
     DIP_BUY             = "DIP_BUY"               # Buying when stock is down ≥50% (1yr) or ≥20% (1mo)
 
 
+def _fp(price) -> str:
+    """Format a price safely — returns 'N/A' when None."""
+    return f"${price:.2f}" if price is not None else "N/A"
+
+
+def _fs(shares) -> str:
+    """Format shares safely — returns 'N/A' when None."""
+    return f"{shares:,.0f}" if shares is not None else "N/A"
+
+
 def _already_flagged(session, accession_no: str, flag_type: str) -> bool:
     return session.query(Flag).filter_by(
         accession_no=accession_no, flag_type=flag_type
@@ -56,8 +66,8 @@ def _flag_ceo_cfo_purchases(new_filings: list, session) -> list[Flag]:
             flag_type=FlagType.CEO_CFO_PURCHASE,
             severity="HIGH",
             description=(
-                f"{f.insider_name} ({f.officer_title}) bought {f.shares:,.0f} shares "
-                f"of {f.ticker} on {f.transaction_date} at ${f.price:.2f} "
+                f"{f.insider_name} ({f.officer_title}) bought {_fs(f.shares)} shares "
+                f"of {f.ticker} on {f.transaction_date} at {_fp(f.price)} "
                 f"(total {value_str}). Open-market CEO/CFO purchases are rare and "
                 f"highly informative signals."
             ),
@@ -83,7 +93,7 @@ def _flag_large_purchases(new_filings: list, session) -> list[Flag]:
             severity="HIGH" if f.value >= 2_000_000 else "MEDIUM",
             description=(
                 f"{f.insider_name} made an open-market purchase of "
-                f"{f.shares:,.0f} shares of {f.ticker} worth "
+                f"{_fs(f.shares)} shares of {f.ticker} worth "
                 f"${f.value:,.0f} on {f.transaction_date}."
             ),
         ))
@@ -157,7 +167,7 @@ def _flag_first_purchases(new_filings: list, session) -> list[Flag]:
             description=(
                 f"{f.insider_name} ({f.officer_title or 'Insider'}) made their first "
                 f"recorded open-market purchase of {f.ticker}: "
-                f"{f.shares:,.0f} shares at ${f.price:.2f} on {f.transaction_date}."
+                f"{_fs(f.shares)} shares at {_fp(f.price)} on {f.transaction_date}."
             ),
         ))
     return flags
@@ -191,8 +201,8 @@ def _flag_reversal_buys(new_filings: list, session) -> list[Flag]:
                 severity="MEDIUM",
                 description=(
                     f"{f.insider_name} had been selling {f.ticker} in the last 90 days "
-                    f"but just made an open-market PURCHASE of {f.shares:,.0f} shares "
-                    f"at ${f.price:.2f} on {f.transaction_date} — a potential reversal signal."
+                    f"but just made an open-market PURCHASE of {_fs(f.shares)} shares "
+                    f"at {_fp(f.price)} on {f.transaction_date} — a potential reversal signal."
                 ),
             ))
     return flags
@@ -244,7 +254,7 @@ def _flag_bull_reversals(new_filings: list, session) -> list[Flag]:
             desc = (
                 f"{f.insider_name} has been selling {f.ticker} for "
                 f"{consecutive_sells} consecutive transactions but just made an "
-                f"open-market BUY of {f.shares:,.0f} shares at ${f.price:.2f} "
+                f"open-market BUY of {_fs(f.shares)} shares at {_fp(f.price)} "
                 f"on {f.transaction_date}. Flipping after sustained selling is a "
                 f"strong bullish reversal signal."
             )
@@ -253,7 +263,7 @@ def _flag_bull_reversals(new_filings: list, session) -> list[Flag]:
             desc = (
                 f"{f.insider_name} had been exclusively selling {f.ticker} for "
                 f"{years:.1f} years but just made an open-market BUY of "
-                f"{f.shares:,.0f} shares at ${f.price:.2f} on {f.transaction_date}. "
+                f"{_fs(f.shares)} shares at {_fp(f.price)} on {f.transaction_date}. "
                 f"Buying after over a year of selling is a strong reversal signal."
             )
         else:
@@ -300,7 +310,7 @@ def _flag_conviction_buys(new_filings: list, session) -> list[Flag]:
             severity=severity,
             description=(
                 f"{f.insider_name} increased their {f.ticker} position by "
-                f"{pct_increase * 100:.0f}% — bought {f.shares:,.0f} shares "
+                f"{pct_increase * 100:.0f}% — bought {_fs(f.shares)} shares "
                 f"(prior balance: {prior_shares:,.0f}) on {f.transaction_date}. "
                 f"Large % position increases are historically the strongest "
                 f"insider buy signals."
@@ -371,8 +381,8 @@ def _flag_dip_buys(new_filings: list, session) -> list[Flag]:
             flag_type=FlagType.DIP_BUY,
             severity="HIGH",
             description=(
-                f"{f.insider_name} bought {f.shares:,.0f} shares of {f.ticker} "
-                f"at ${txn_price:.2f} on {f.transaction_date} while the stock was "
+                f"{f.insider_name} bought {_fs(f.shares)} shares of {f.ticker} "
+                f"at {_fp(txn_price)} on {f.transaction_date} while the stock was "
                 f"{' and '.join(reasons)}. Insiders buying into significant drawdowns "
                 f"have the highest historical forward returns."
             ),

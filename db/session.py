@@ -89,6 +89,7 @@ def _widen_varchar_columns():
         ("section16_filings", "transaction_type"),
         ("insider_analytics", "insider_cik"),
         ("insider_analytics", "insider_name"),
+        ("flags",             "insider_name"),   # cluster-buy names can exceed VARCHAR(255)
     ]
     with engine.connect() as conn:
         for table, col in col_changes:

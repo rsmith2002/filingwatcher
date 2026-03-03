@@ -198,7 +198,7 @@ class Flag(Base):
 
     id           = Column(Integer, primary_key=True, autoincrement=True)
     ticker       = Column(String(10), index=True)
-    insider_name = Column(String(255))
+    insider_name = Column(Text)
     accession_no = Column(String(50), index=True)
     flag_type    = Column(String(100))        # e.g. "CLUSTER_BUY", "CEO_PURCHASE"
     severity     = Column(String(20))         # HIGH / MEDIUM / LOW
